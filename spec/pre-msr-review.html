@@ -276,7 +276,7 @@ table.grid { border-collapse: separate; border-spacing: 0; font: 12.5px/1.35 var
 <script id="pmr-data" type="application/json"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script>
+<script id="pmr-app">
 (() => {
 'use strict';
 
@@ -302,6 +302,11 @@ const els = {
   copyBtn: $('copyBtn'), saveBtn: $('saveBtn'), dyn: $('dynStyle')
 };
 const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+// Inside the claude.ai viewer, files are saved through the downloads capability (the viewer confirms).
+let downloads = null;
+if (framed && window.claude && typeof window.claude.use === 'function') {
+  window.claude.use('downloads').then(d => { downloads = d; if (d && S.book) els.saveBtn.hidden = false; }, () => {});
+}
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem('pmr.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -907,7 +912,7 @@ function openBook(book) {
     (book.modified ? 'file saved ' + new Date(book.modified).toLocaleString() : '');
   els.fileInfo.textContent = book.file + (when ? ' · ' + when : '') + (book.fallback ? ' · tab colours not found, showing known sheets' : '');
   els.landing.hidden = true; els.sheetView.hidden = false;
-  els.saveBtn.hidden = framed;
+  els.saveBtn.hidden = framed && !downloads;
   document.title = 'Pre-MSR Review · ' + book.file.replace(/\.(xlsm|xlsx|xlsb|xls)$/i, '');
   renderTabs();
   selectSheet(S.active);
@@ -929,16 +934,33 @@ function exportBook() {
   });
   const data = { v: 1, file: S.book.file, modified: S.book.modified, exported: Date.now(), sheets };
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
-  const slot = /<script id="pmr-data" type="application\/json">[\s\S]*?<\/script>/;
-  if (!slot.test(PAGE_SOURCE)) { toast('Could not build the report file.'); return; }
-  const html = PAGE_SOURCE.replace(slot, () => '<script id="pmr-data" type="application/json">' + json + '</' + 'script>');
-  const blob = new Blob([html], { type: 'text/html' });
+  // Rebuild the page from its original source, keeping only this page's own scripts.
+  const doc = new DOMParser().parseFromString(PAGE_SOURCE, 'text/html');
+  for (const el of doc.querySelectorAll('script, meta[http-equiv]')) {
+    const keep = el.id === 'pmr-app' || el.id === 'pmr-data' || /^https:\/\/cdnjs\.cloudflare\.com\//.test(el.getAttribute('src') || '');
+    if (!keep) el.remove();
+  }
+  const slot = doc.getElementById('pmr-data');
+  if (!slot || !doc.getElementById('pmr-app')) { toast('Could not build the report file.'); return; }
+  slot.textContent = json;
+  const html = '<!doctype html>\n' + doc.documentElement.outerHTML;
+  const filename = 'Pre-MSR Review - ' + S.book.file.replace(/\.(xlsm|xlsx|xlsb|xls)$/i, '').trim() + '.html';
+  const done = () => toast('Report saved. It opens in any browser, with tabs and filters.');
+  if (framed) {
+    if (!downloads) { toast('Saving is not available in this view.'); return; }
+    downloads.save({ filename, data: new Blob([html], { type: 'text/html' }) }).then(done, err => {
+      const code = err && err.code;
+      if (code === 'declined') return;
+      toast(code === 'rate_limited' ? 'A save is already waiting for your answer.' : 'The report could not be saved here.');
+    });
+    return;
+  }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'Pre-MSR Review - ' + S.book.file.replace(/\.(xlsm|xlsx|xlsb|xls)$/i, '').trim() + '.html';
+  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast('Report saved. It opens in any browser, with tabs and filters.');
+  done();
 }
 
 // ---------- copy view ----------
