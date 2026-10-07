@@ -1,0 +1,403 @@
+<title>Pre-MSR Workbook Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column, wide tables scroll in their own box; sheet names always set as tab-chips in mono */
+:root{
+  --paper:#f7f8f6; --surface:#ffffff; --ink:#15191c; --muted:#5b6467; --rule:#dde1df;
+  --accent:#1f5f5b; --accent-soft:#e3efed; --warn:#9a5b00; --warn-soft:#fbf0dc; --bad:#a3302a; --bad-soft:#f8e4e2;
+  --f-display:"Public Sans",system-ui,sans-serif; --f-body:"Public Sans",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --tab-black:#111111; --tab-grey:#757171; --tab-lgrey:#aeaaaa; --tab-orange:#ffc000; --tab-m1:#8497b0; --tab-yellow:#ffff00;
+  --tab-red:#ff0000; --tab-gold:#ffd966; --tab-rust:#c55a11; --tab-navy:#002060; --tab-blue:#0070c0; --tab-sky:#00b0f0; --tab-green:#00b050; --tab-none:transparent;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme:dark; --paper:#121516; --surface:#1a1e20; --ink:#e6eae8; --muted:#9aa4a6; --rule:#2c3335;
+  --accent:#6fc2b9; --accent-soft:#1d3331; --warn:#e2a64a; --warn-soft:#33281a; --bad:#ec7f76; --bad-soft:#3a2120; --tab-black:#000;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --paper:#121516; --surface:#1a1e20; --ink:#e6eae8; --muted:#9aa4a6; --rule:#2c3335;
+  --accent:#6fc2b9; --accent-soft:#1d3331; --warn:#e2a64a; --warn-soft:#33281a; --bad:#ec7f76; --bad-soft:#3a2120; --tab-black:#000;
+}
+body{background:var(--paper);color:var(--ink);font:15px/1.6 var(--f-body);padding-inline:20px;padding-block:40px 80px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2.4rem;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.45rem;font-weight:800;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font:500 .75rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-direction:column;gap:14px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 28px;font:400 .85rem var(--f-mono);color:var(--muted)}
+.meta b{color:var(--ink);font-weight:500}
+.tab{display:inline-flex;align-items:center;gap:6px;font:500 .82rem/1.3 var(--f-mono);white-space:nowrap;background:var(--surface);border:1px solid var(--rule);border-bottom-width:3px;border-radius:4px 4px 0 0;padding:2px 8px}
+.tab.k{border-bottom-color:var(--tab-black);background:var(--tab-black);color:#fff;border-color:var(--tab-black)}
+.sw{width:12px;height:12px;border-radius:2px;border:1px solid var(--rule);flex:none;display:inline-block}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px 20px}
+.legend div{display:flex;gap:10px;align-items:flex-start;font-size:.88rem}
+.legend .sw{margin-top:5px}
+.note{background:var(--accent-soft);padding:14px 18px;border-radius:6px;max-width:none}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;vertical-align:top;padding:8px 12px;border-bottom:1px solid var(--rule)}
+th{font:500 .72rem var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--paper);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td.n{text-align:right;font-family:var(--f-mono)}
+tr.grp td{background:var(--paper);font-weight:600;font-size:.8rem;color:var(--muted);letter-spacing:.03em}
+.cards{display:flex;flex-direction:column;gap:22px}
+.card{background:var(--surface);border:1px solid var(--rule);border-left:6px solid var(--tab-black);border-radius:4px;padding:20px 22px;display:grid;grid-template-columns:200px 1fr;gap:10px 24px}
+.card h3{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.card h3 .no{font:500 .8rem var(--f-mono);color:var(--muted)}
+.card dt{font:500 .75rem var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.card dd{margin:0}
+.card dl{display:contents}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.flag{display:inline-block;font:500 .72rem var(--f-mono);padding:1px 7px;border-radius:10px;background:var(--warn-soft);color:var(--warn)}
+.flag.bad{background:var(--bad-soft);color:var(--bad)}
+.flag.ok{background:var(--accent-soft);color:var(--accent)}
+.diagram{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px;overflow-x:auto}
+.issues{display:flex;flex-direction:column;gap:12px;padding:0;margin:0;list-style:none}
+.issues li{display:grid;grid-template-columns:90px 1fr;gap:14px;align-items:baseline}
+code{font-family:var(--f-mono);font-size:.85em}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+@media (max-width:640px){.card{grid-template-columns:1fr}.card dt{padding-top:8px}.issues li{grid-template-columns:1fr;gap:4px}h1{font-size:1.9rem}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Workbook specification · Syria · Pre-MSR</span>
+  <h1>Pre-MSR Oct workbook</h1>
+  <p>How the 60 sheets in <code>Pre-MSR&nbsp;&nbsp;Oct.xlsm</code> fit together, which ones management reviews, and where each management number comes from. Built by reading the workbook's formulas, pivot caches, tables, slicers and macro buttons directly.</p>
+  <div class="meta">
+    <span><b>60</b> sheets</span><span><b>10</b> management sheets (black tab)</span><span><b>~147k</b> formulas</span><span><b>51</b> pivot tables / <b>9</b> pivot caches</span><span>Checked against file saved <b>7 Oct 2026, 22:05</b></span><span><b>14</b> Excel tables</span><span>Year in focus: <b>2026 current</b>, <b>2027 (Y+1)</b></span>
+  </div>
+</header>
+
+<section>
+  <h2>Tab colour key</h2>
+  <p>Tab colours read from the file. Black (theme "Text 1") marks the sheets for management review.</p>
+  <div class="legend">
+    <div><span class="sw" style="background:var(--tab-black)"></span><span><b>Black</b> – management review (10)</span></div>
+    <div><span class="sw" style="background:var(--tab-grey)"></span><span><b>Dark grey</b> – calculation engines and side analyses (7)</span></div>
+    <div><span class="sw" style="background:var(--tab-orange)"></span><span><b>Orange</b> – raw system extracts, month M (2)</span></div>
+    <div><span class="sw" style="background:var(--tab-m1)"></span><span><b>Blue-grey</b> – raw extracts, prior month M-1 (2)</span></div>
+    <div><span class="sw" style="background:var(--tab-yellow)"></span><span><b>Yellow</b> – BDA allowance and distribution drivers (4)</span></div>
+    <div><span class="sw" style="background:var(--tab-gold)"></span><span><b>Light gold</b> – DSCR rate tables (3)</span></div>
+    <div><span class="sw" style="background:var(--tab-rust)"></span><span><b>Rust</b> – target split by customer (2)</span></div>
+    <div><span class="sw" style="background:var(--tab-red)"></span><span><b>Red</b> – price change (1)</span></div>
+    <div><span class="sw" style="background:var(--tab-navy)"></span><span><b>Navy</b> – Mosaic reconciliation checks (3)</span></div>
+    <div><span class="sw" style="background:var(--tab-blue)"></span><span><b>Blue / sky</b> – 2027 checks (2)</span></div>
+    <div><span class="sw" style="background:var(--tab-green)"></span><span><b>Green</b> – Mosaic submission outputs (4)</span></div>
+    <div><span class="sw"></span><span><b>No colour</b> – helpers, masters, side reports (20)</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>How data flows</h2>
+  <p>Raw extracts and driver tables feed two engine tables: <code>Table1</code> on <span class="tab">Consolidation RAW</span> for the current year and <code>Table19</code> on <span class="tab">Y+1</span> for 2027. Every management sheet is a pivot or a SUMIFS/VLOOKUP view over one or both engines. The exception is <span class="tab k">IMS Stock</span>, which sits upstream and drives the volume forecast.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph IN["Inputs"]
+    SVA["Sales Vs Activity-RAW"]
+    NNS["NNSBreakDown-RAW"]
+    SVA1["Sales Vs Activity-RAW M-1"]
+    NNS1["NNSBreakDown-RAW M-1"]
+    FA["Fayrouz-Arrival / -2027"]
+  end
+  subgraph MD["Masters and parameters"]
+    AS["Assist"]
+    SKU["SKU mapping-Pricing"]
+  end
+  subgraph DR["Drivers"]
+    FC["FCST"]
+    FC1["FCST Y+1"]
+    PC["Price Chnge"]
+    DS["DSCR / DSCR Y+1"]
+    BDA["BDA Allowance Assist (+Y+1)"]
+    DM["Distribution by Month (+Y+1)"]
+    TS["Target Split (+Y+1)"]
+  end
+  subgraph EN["Engines"]
+    CR["Consolidation RAW · Table1 · 2026"]
+    Y1["Y+1 · Table19 · 2027"]
+  end
+  subgraph MG["Management review"]
+    IMS["IMS Stock"]
+    DF26["2026 DF, NNS, Tons, Cases"]
+    GOL["Gap OL"]
+    MGAP["Monthly Gap"]
+    TTS["TTS"]
+    CMP["2027_Comparision"]
+    BQ["2027_by Quarter"]
+    OL27["2027 OL"]
+    TTS27["2027 TTS"]
+    CY["CYvsNY"]
+  end
+  SVA --> IMS
+  FA --> IMS
+  IMS --> FC
+  IMS --> FC1
+  SVA --> CR
+  NNS --> CR
+  SVA1 --> CR
+  NNS1 --> Y1
+  SVA1 --> Y1
+  FC --> CR
+  FC1 --> Y1
+  PC --> CR & Y1
+  DS --> CR & Y1
+  BDA --> CR & Y1
+  DM --> CR & Y1
+  TS --> CR & Y1
+  AS -.-> CR & Y1
+  SKU -.-> CR & Y1
+  CR --> Y1
+  CR --> DF26 & GOL & MGAP & TTS
+  CR --> CMP
+  Y1 --> CMP
+  CMP --> BQ
+  Y1 --> BQ
+  Y1 --> OL27 & TTS27
+  FC --> CY
+  FC1 --> CY
+  CR -. pivot .-> CY
+  Y1 -. pivot .-> CY
+  classDef mgmt fill:#111,color:#fff,stroke:#111
+  classDef eng fill:#757171,color:#fff,stroke:#757171
+  class IMS,DF26,GOL,MGAP,TTS,CMP,BQ,OL27,TTS27,CY mgmt
+  class CR,Y1 eng
+</pre>
+  </div>
+  <p class="eyebrow">Solid line = formula reference · dotted = lookup or pivot source</p>
+</section>
+
+<section>
+  <h2>Management sheets</h2>
+  <p>The 10 black-tab sheets, in workbook order. "M" is this month's Pre-MSR (Oct) and "M-1" is last month's (Sep). Most of these sheets carry a <code>Refresh_all</code> macro button. Press it after the engines change so the pivots pick up new data.</p>
+
+  <div class="cards">
+
+    <article class="card">
+      <h3><span class="no">#2</span><span class="tab k">2026 DF , NNS ,Tons,Cases</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Full-year 2026 outlook per SKU: NNS in USD, tons and cases by month, quarter and FY.</dd>
+        <dt>Layout</dt><dd>Main_Cat › F-Group › SKU › Desc against Jan–Dec, Q1–Q4 and 2026 FY. NNS converted at the average exchange rate (117.3 SYP/USD).</dd>
+        <dt>Built from</dt><dd>3 pivots on <code>Table1</code> (<span class="tab">Consolidation RAW</span>). Filters: FCST Type = M, YEARCUR = 2026, Active = 1, Country = Syria. The exchange rate comes from <span class="tab">Assist</span>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#3</span><span class="tab k">Gap OL</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>One-page gap between last month's and this month's outlook, per category and F-Group.</dd>
+        <dt>Layout</dt><dd>Three blocks: Tons, NNS (Mio SYP), NNS KUSD. Each shows LY, Pre-MSR Sep, Pre-MSR Oct, Gap, Gap % and Growth %.</dd>
+        <dt>Built from</dt><dd>2 pivots on <code>Table1</code> (M-1 fields against M fields), plus table <code>Table6</code>. Feeds <span class="tab">Summary for email</span>.</dd>
+        <dt>Watch</dt><dd><span class="flag ok">fixed</span> The external link to <code>Copy of Aug Target Split-new customer.xlsm</code> is removed. Those cells in column AA are now blank. <span class="flag">#REF! filter</span> The saved filter range still points to <code>#REF!</code>. <span class="flag">#DIV/0!</span> 3 rows in the Grow column (V17, V29, V32) divide by an M value of zero.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#4</span><span class="tab k">Monthly Gap</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Month-by-month M vs M-1 comparison, with SKU-level case changes and comments.</dd>
+        <dt>Layout</dt><dd>Top: Tons and NNS KUSD, Jan–Dec plus quarters, rows for M, M-1, Gap, Gap % and quarterly Phasing. Below: table <code>Table612</code>, one row per SKU, showing the case change by month, with a Comments column. To the right, the M and M-1 case grids used for the lookup.</dd>
+        <dt>Built from</dt><dd>About 1,000 VLOOKUPs and SUMIFS on <span class="tab">Consolidation RAW</span>, plus 3 pivots on <code>Table1</code>. <span class="tab">Assist</span> supplies the month labels.</dd>
+        <dt>Controls</dt><dd>Macro buttons filter by category: Coffee, Confectionary, Dairy, Food, Nutrition, All, plus Refresh_all.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#5</span><span class="tab k">TTS</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Total trade spend for the current year, with this month compared to last month.</dd>
+        <dt>Layout</dt><dd>Business › F-Group with NPS, BDA, DSCR, TTS and their % of NPS, for Pre-MSR Oct and Pre-MSR Sep, then the difference and the increase %. Values in SYP '000.</dd>
+        <dt>Built from</dt><dd>2 pivots on <code>Table1</code> (FCST Type M and M-1, with period and FCST Split filters), plus <code>Table4</code>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#6</span><span class="tab k">IMS Stock</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Stock and sell-in plan per SKU for Dec 2024 to Dec 2027. This sheet is where the volume forecast starts.</dd>
+        <dt>Layout</dt><dd>Several lines per SKU: IMS Actual (Sales), Nestlé Syria / TPS Target, Expected Arrivals in WH, Stock Cover Days. Yearly totals for 2025, 2026 and 2027. About 2,100 rows.</dd>
+        <dt>Built from</dt><dd><span class="tab">Sales Vs Activity-RAW</span> (actuals), <span class="tab">Fayrouz-Arrival</span> and <span class="tab">Fayrouz-Arrival-2027</span> (arrivals), and <span class="tab">Assist</span> (dates).</dd>
+        <dt>Feeds</dt><dd><span class="tab">FCST</span>, <span class="tab">FCST Y+1</span>, <span class="tab">Fayrouz Target</span>, <span class="tab">Fayrouz-Arrival</span>. Because of this, a change here flows into both engines and every other management sheet.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#7</span><span class="tab k">2027_Comparision</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>2026 vs 2027 per SKU, including how much of the NNS growth comes from price.</dd>
+        <dt>Layout</dt><dd>Table <code>Table20</code>: Cat, F-Group, Desc; Cases, Tons, NNS KUSD and NNS Loc for 2026 and 2027 with growth; 2026 price; 2027 NNS at 2026 price; price difference in KUSD; contribution %. Staging data in columns W:AH feeds its own pivots.</dd>
+        <dt>Built from</dt><dd>SUMIFS over <span class="tab">Consolidation RAW</span> (2026) and <span class="tab">Y+1</span> (2027), with prices from <span class="tab">SKU mapping-Pricing</span>.</dd>
+        <dt>Feeds</dt><dd><span class="tab">2027_by Quarter</span>, <span class="tab">2027 check</span>, and the pivots on <span class="tab">2027 VS ICP</span> and <span class="tab">Ramadan</span>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#11</span><span class="tab k">2027_by Quarter</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Monthly and quarterly phasing, 2026 against 2027.</dd>
+        <dt>Layout</dt><dd>Blocks for Tons, NNS and Cases. Rows for 2026, 2027 and growth across Jan–Dec, Q1–Q4 and Total.</dd>
+        <dt>Built from</dt><dd>SUMIFS on <span class="tab">Consolidation RAW</span> and <span class="tab">Y+1</span>, plus a pivot on the <span class="tab">2027_Comparision</span> staging range.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#12</span><span class="tab k">2027 OL</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Full-year 2027 outlook per SKU. The 2027 equivalent of sheet #2.</dd>
+        <dt>Layout</dt><dd>Main_Cat › F-Group › SKU against months, quarter totals and grand total. NNS in USD at the 2027 rate (125.0 SYP/USD).</dd>
+        <dt>Built from</dt><dd>3 pivots on <code>Table19</code> (<span class="tab">Y+1</span>). Filters: FCST Type = M, YEARCUR = 2027, Country = Syria.</dd>
+        <dt>Watch</dt><dd><span class="flag">label</span> The header row above the pivot still reads "2026 FY".</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#13</span><span class="tab k">2027 TTS</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>2027 trade spend by category and F-Group.</dd>
+        <dt>Layout</dt><dd>NPS Loc, BDA, DSCR, Total TTS, BDA %, DSCR %, Total TTS %, NNS Loc / USD, PFME and PFME %.</dd>
+        <dt>Built from</dt><dd>1 pivot on <code>Table19</code> (<span class="tab">Y+1</span>). Filters: FCST Type, period, YEARCUR = 2027, MTHCUR, SKU Status.</dd>
+        <dt>Watch</dt><dd><span class="flag">#DIV/0!</span> F-Groups with no 2027 volume show #DIV/0! in the % columns (20 cells).</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><span class="no">#14</span><span class="tab k">CYvsNY</span></h3>
+      <dl>
+        <dt>Purpose</dt><dd>Current year against next year in cases, per SKU, including new SKUs.</dd>
+        <dt>Layout</dt><dd>Table <code>Table9</code>: Category, SKU, SKU Status (Current / New), Year, Jan–Dec cases, Total CS, average, NNS KUSD, growth. Category totals at the top (for example, Coffee 192,599 → 249,000 CS).</dd>
+        <dt>Built from</dt><dd>SUMIF over <span class="tab">FCST</span> (2026) and <span class="tab">FCST Y+1</span> (2027), prices from <span class="tab">SKU mapping-Pricing</span>, NNS from 2 pivots on <code>Table1</code> and <code>Table19</code>.</dd>
+        <dt>Note</dt><dd><span class="flag ok">fixed</span> Rows 81–90 are empty placeholder rows (code 0). The SKU lookup is now wrapped in IFERROR, so these rows show blank instead of #N/A.</dd>
+      </dl>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <h2>All sheets</h2>
+  <p>Grouped by role. "Formulas" counts formula cells in the file. "Reads from" lists the other sheets that a sheet's formulas or pivots reference.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Sheet</th><th>Role</th><th>Reads from</th><th style="text-align:right">Formulas</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="5">Control and masters</td></tr>
+      <tr><td class="n">1</td><td><span class="tab">Dashboard</span></td><td>Monthly update checklist and Mosaic submission dates</td><td>–</td><td class="n">0</td></tr>
+      <tr><td class="n">38</td><td><span class="tab">Assist</span></td><td>Parameters: last actual month, exchange rates (current and M-1), period split, customer → channel map</td><td>–</td><td class="n">84</td></tr>
+      <tr><td class="n">33</td><td><span class="tab">SKU mapping-Pricing</span></td><td>SKU master: codes, F-Group, category, WSL/retail price, GPR %, status, Arabic description</td><td>–</td><td class="n">204</td></tr>
+      <tr><td class="n">56</td><td><span class="tab">Guide line for new SKU update</span></td><td>Steps for adding a new SKU across sheets</td><td>–</td><td class="n">0</td></tr>
+
+      <tr class="grp"><td colspan="5">Raw extracts</td></tr>
+      <tr><td class="n">47</td><td><span class="tab"><span class="sw" style="background:var(--tab-orange)"></span>Sales Vs Activity-RAW</span></td><td>Month M extract: SKU × customer × month: cases, tons, GPS, NPS, NNS, trade spend (<code>Table5</code>)</td><td>SKU mapping-Pricing</td><td class="n">14,208</td></tr>
+      <tr><td class="n">48</td><td><span class="tab"><span class="sw" style="background:var(--tab-orange)"></span>NNSBreakDown-RAW</span></td><td>Month M NNS waterfall: GPS → NPS → BDA/DSCR/TTS → NNS (<code>Table2</code>)</td><td>Assist</td><td class="n">414</td></tr>
+      <tr><td class="n">49</td><td><span class="tab"><span class="sw" style="background:var(--tab-m1)"></span>Sales Vs Activity-RAW M-1</span></td><td>Same layout, prior month (<code>Table58</code>)</td><td>–</td><td class="n">7,104</td></tr>
+      <tr><td class="n">50</td><td><span class="tab"><span class="sw" style="background:var(--tab-m1)"></span>NNSBreakDown-RAW M-1</span></td><td>Same layout, prior month (<code>Table24</code>)</td><td>Assist</td><td class="n">414</td></tr>
+      <tr><td class="n">23</td><td><span class="tab">Fayrouz-Arrival</span></td><td>Warehouse arrivals by SKU and month, 2026</td><td>IMS Stock</td><td class="n">474</td></tr>
+      <tr><td class="n">25</td><td><span class="tab">Fayrouz-Arrival-2027</span></td><td>Warehouse arrivals, 2027</td><td>IMS Stock</td><td class="n">438</td></tr>
+
+      <tr class="grp"><td colspan="5">Drivers</td></tr>
+      <tr><td class="n">19</td><td><span class="tab">FCST</span></td><td>Volume forecast in cases, SKU × month, 2026</td><td>IMS Stock, SKU mapping-Pricing</td><td class="n">436</td></tr>
+      <tr><td class="n">20</td><td><span class="tab">FCST Y+1</span></td><td>Volume forecast in cases, 2027</td><td>IMS Stock, SKU mapping-Pricing, Fayrouz 2027-Target, FCST</td><td class="n">616</td></tr>
+      <tr><td class="n">34</td><td><span class="tab"><span class="sw" style="background:var(--tab-red)"></span>Price Chnge</span></td><td>Price changes by SKU and month</td><td>SKU mapping-Pricing</td><td class="n">2,546</td></tr>
+      <tr><td class="n">35</td><td><span class="tab"><span class="sw" style="background:var(--tab-gold)"></span>DSCR</span></td><td>Discretionary spend rates by SKU</td><td>–</td><td class="n">75</td></tr>
+      <tr><td class="n">36</td><td><span class="tab"><span class="sw" style="background:var(--tab-gold)"></span>DSCR -LS</span></td><td>Discretionary spend, lump sum</td><td>–</td><td class="n">75</td></tr>
+      <tr><td class="n">37</td><td><span class="tab"><span class="sw" style="background:var(--tab-gold)"></span>DSCR Y+1</span></td><td>Discretionary spend rates, 2027</td><td>DSCR</td><td class="n">81</td></tr>
+      <tr><td class="n">29</td><td><span class="tab"><span class="sw" style="background:var(--tab-yellow)"></span>BDA Allowance Assist</span></td><td>BDA % and lump sums by SKU</td><td>SKU mapping-Pricing</td><td class="n">223</td></tr>
+      <tr><td class="n">30</td><td><span class="tab"><span class="sw" style="background:var(--tab-yellow)"></span>BDA Allowance Assist Y+1</span></td><td>BDA, 2027</td><td>SKU mapping-Pricing, BDA Allowance Assist</td><td class="n">242</td></tr>
+      <tr><td class="n">31</td><td><span class="tab"><span class="sw" style="background:var(--tab-yellow)"></span>Distribution by Month</span></td><td>Monthly allowance distribution</td><td>BDA Allowance Assist</td><td class="n">550</td></tr>
+      <tr><td class="n">32</td><td><span class="tab"><span class="sw" style="background:var(--tab-yellow)"></span>Distribution by Month Y+1</span></td><td>Monthly distribution, 2027</td><td>BDA Allowance Assist Y+1</td><td class="n">1,116</td></tr>
+      <tr><td class="n">27</td><td><span class="tab"><span class="sw" style="background:var(--tab-rust)"></span>Target Split</span></td><td>Volume split by customer</td><td>–</td><td class="n">830</td></tr>
+      <tr><td class="n">28</td><td><span class="tab"><span class="sw" style="background:var(--tab-rust)"></span>Target Split Y+1</span></td><td>Customer split, 2027</td><td>–</td><td class="n">1,495</td></tr>
+
+      <tr class="grp"><td colspan="5">Engines</td></tr>
+      <tr><td class="n">44</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>Consolidation RAW</span></td><td>Current-year engine (<code>Table1</code>): customer × SKU × month with cases, tons, NPS, NNS, TTS, BDA, DSCR, other allowances, plus M-1 columns. Source for about 30 pivots.</td><td>Sales Vs Activity-RAW (+M-1), NNSBreakDown-RAW, Assist, BDA Allowance Assist, SKU mapping-Pricing, DSCR, Target Split, Distribution by Month, Price Chnge, FCST</td><td class="n">26,691</td></tr>
+      <tr><td class="n">46</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>Y+1</span></td><td>2027 engine (<code>Table19</code>), same column layout. Source for the 2027 pivots, including the Mosaic submission.</td><td>NNSBreakDown-RAW M-1, Sales Vs Activity-RAW M-1, Assist, BDA Allowance Assist Y+1, Consolidation RAW, SKU mapping-Pricing, Target Split Y+1, Distribution by Month Y+1, Price Chnge, DSCR Y+1, FCST Y+1</td><td class="n">29,581</td></tr>
+
+      <tr class="grp"><td colspan="5">Management review (black)</td></tr>
+      <tr><td class="n">2</td><td><span class="tab k">2026 DF , NNS ,Tons,Cases</span></td><td>2026 FY outlook by SKU</td><td>Consolidation RAW (pivot), Assist</td><td class="n">69</td></tr>
+      <tr><td class="n">3</td><td><span class="tab k">Gap OL</span></td><td>M vs M-1 gap by F-Group</td><td>Consolidation RAW (pivot), Assist</td><td class="n">423</td></tr>
+      <tr><td class="n">4</td><td><span class="tab k">Monthly Gap</span></td><td>Monthly M vs M-1, SKU case changes</td><td>Consolidation RAW, Assist</td><td class="n">1,223</td></tr>
+      <tr><td class="n">5</td><td><span class="tab k">TTS</span></td><td>Trade spend, M vs M-1</td><td>Consolidation RAW (pivot), Assist</td><td class="n">342</td></tr>
+      <tr><td class="n">6</td><td><span class="tab k">IMS Stock</span></td><td>Sales, target, arrivals and stock cover by SKU</td><td>Sales Vs Activity-RAW, Assist, Fayrouz-Arrival, Fayrouz-Arrival-2027</td><td class="n">8,905</td></tr>
+      <tr><td class="n">7</td><td><span class="tab k">2027_Comparision</span></td><td>2026 vs 2027 by SKU, price effect</td><td>Consolidation RAW, Y+1, SKU mapping-Pricing</td><td class="n">6,520</td></tr>
+      <tr><td class="n">11</td><td><span class="tab k">2027_by Quarter</span></td><td>2026 vs 2027 phasing</td><td>Consolidation RAW, Y+1, 2027_Comparision</td><td class="n">8,105</td></tr>
+      <tr><td class="n">12</td><td><span class="tab k">2027 OL</span></td><td>2027 FY outlook by SKU</td><td>Y+1 (pivot), Assist</td><td class="n">1</td></tr>
+      <tr><td class="n">13</td><td><span class="tab k">2027 TTS</span></td><td>2027 trade spend</td><td>Y+1 (pivot)</td><td class="n">20</td></tr>
+      <tr><td class="n">14</td><td><span class="tab k">CYvsNY</span></td><td>2026 vs 2027 cases by SKU</td><td>FCST, FCST Y+1, SKU mapping-Pricing, Consolidation RAW and Y+1 (pivots)</td><td class="n">2,007</td></tr>
+
+      <tr class="grp"><td colspan="5">Side analyses</td></tr>
+      <tr><td class="n">8</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>TTS_Comparsion</span></td><td>2026 vs 2027 trade spend by SKU (<code>Table14</code>)</td><td>Consolidation RAW, Y+1, Assist</td><td class="n">4,525</td></tr>
+      <tr><td class="n">9</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>2027 VS ICP</span></td><td>Copy of 2027_Comparision used against the ICP plan</td><td>Consolidation RAW, Y+1, SKU mapping-Pricing, 2027_Comparision (pivot)</td><td class="n">6,256</td></tr>
+      <tr><td class="n">10</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>Ramadan</span></td><td>Copy of 2027_Comparision for the Ramadan period</td><td>Consolidation RAW, Y+1, SKU mapping-Pricing, 2027_Comparision (pivot)</td><td class="n">6,256</td></tr>
+      <tr><td class="n">15</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>Activity Calander</span></td><td>Promotion calendar</td><td>–</td><td class="n">0</td></tr>
+      <tr><td class="n">16</td><td><span class="tab"><span class="sw" style="background:var(--tab-lgrey)"></span>2027 price-rate</span></td><td>Price and exchange-rate assumptions with 2 charts</td><td>–</td><td class="n">38</td></tr>
+      <tr><td class="n">21</td><td><span class="tab">Summary for email</span></td><td>Short text summary for email</td><td>Gap OL</td><td class="n">38</td></tr>
+      <tr><td class="n">22</td><td><span class="tab">Fayrouz Target</span></td><td>Distributor target, 2026</td><td>IMS Stock, Assist</td><td class="n">326</td></tr>
+      <tr><td class="n">24</td><td><span class="tab">Fayrouz 2027-Target</span></td><td>Distributor target, 2027</td><td>FCST Y+1, Assist</td><td class="n">652</td></tr>
+      <tr><td class="n">41</td><td><span class="tab">For-Fico</span></td><td>Finance (FICO) output</td><td>Fico Assist</td><td class="n">818</td></tr>
+      <tr><td class="n">42</td><td><span class="tab">Fico Assist</span></td><td>Helper for For-Fico</td><td>Consolidation RAW, Assist, pivot on Table1</td><td class="n">312</td></tr>
+      <tr><td class="n">43</td><td><span class="tab">for 3 year files</span></td><td>Pivots for the 3-year plan file</td><td>Y+1 and Consolidation RAW (pivots)</td><td class="n">144</td></tr>
+      <tr><td class="n">17</td><td><span class="tab">Sheet5</span></td><td>Scratch, small static block</td><td>–</td><td class="n">0</td></tr>
+      <tr><td class="n">18</td><td><span class="tab">DF</span></td><td>Small pivot on Table1</td><td>Consolidation RAW (pivot)</td><td class="n">12</td></tr>
+
+      <tr class="grp"><td colspan="5">Checks</td></tr>
+      <tr><td class="n">26</td><td><span class="tab">Data Check</span></td><td>Pivot check on Table1</td><td>Consolidation RAW (pivot)</td><td class="n">0</td></tr>
+      <tr><td class="n">39</td><td><span class="tab"><span class="sw" style="background:var(--tab-blue)"></span>2027 check</span></td><td>2027 totals check</td><td>2027_Comparision, Y+1 and Sales vs Activity 2027 (pivots)</td><td class="n">273</td></tr>
+      <tr><td class="n">40</td><td><span class="tab"><span class="sw" style="background:var(--tab-sky)"></span>Sales vs Activity 2027</span></td><td>2027 activity extract</td><td>SKU mapping-Pricing</td><td class="n">1,608</td></tr>
+      <tr><td class="n">45</td><td><span class="tab"><span class="sw" style="background:var(--tab-grey)"></span>Check</span></td><td>Pivot check on Y+1</td><td>Y+1 (pivot)</td><td class="n">0</td></tr>
+      <tr><td class="n">51</td><td><span class="tab"><span class="sw" style="background:var(--tab-navy)"></span>Check Mosaic Sales vs Activty</span></td><td>Raw extract compared with Mosaic</td><td>Sales Vs Activity-RAW, Consolidation RAW (pivots)</td><td class="n">1,050</td></tr>
+      <tr><td class="n">52</td><td><span class="tab"><span class="sw" style="background:var(--tab-navy)"></span>Check Mosaic NNSBreak</span></td><td>NNS breakdown compared with Mosaic</td><td>NNSBreakDown-RAW, Consolidation RAW (pivots)</td><td class="n">224</td></tr>
+      <tr><td class="n">53</td><td><span class="tab"><span class="sw" style="background:var(--tab-navy)"></span>NNSBrk vs Salsvsactivity</span></td><td>Compares the two raw extracts</td><td>NNSBreakDown-RAW, Sales Vs Activity-RAW (pivots)</td><td class="n">32</td></tr>
+      <tr><td class="n">54</td><td><span class="tab">Target Check</span></td><td>Customer target check</td><td>From Target Split, Sales Vs Activity-RAW and Table1 (pivots)</td><td class="n">273</td></tr>
+      <tr><td class="n">55</td><td><span class="tab">From Target Split</span></td><td>Pasted values from the target split file</td><td>–</td><td class="n">0</td></tr>
+
+      <tr class="grp"><td colspan="5">Mosaic submission outputs</td></tr>
+      <tr><td class="n">57</td><td><span class="tab"><span class="sw" style="background:var(--tab-green)"></span>FCST_Mosaic Submission</span></td><td>Current-year forecast for upload to Mosaic</td><td>Consolidation RAW (pivot)</td><td class="n">0</td></tr>
+      <tr><td class="n">58</td><td><span class="tab"><span class="sw" style="background:var(--tab-green)"></span>OTAllowance %</span></td><td>Other allowance % for Mosaic</td><td>Consolidation RAW (pivot)</td><td class="n">0</td></tr>
+      <tr><td class="n">59</td><td><span class="tab"><span class="sw" style="background:var(--tab-green)"></span>2027-Mosaic</span></td><td>2027 forecast for Mosaic</td><td>Y+1 (pivot on Table19)</td><td class="n">0</td></tr>
+      <tr><td class="n">60</td><td><span class="tab"><span class="sw" style="background:var(--tab-green)"></span>2027 Allowance</span></td><td>2027 allowances for Mosaic</td><td>Y+1 (pivot on Table19)</td><td class="n">0</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>Monthly refresh order</h2>
+  <p>The order follows the dependencies above. The first three steps match the checklist on <span class="tab">Dashboard</span>.</p>
+  <ol class="steps">
+    <li>Update <span class="tab">Assist</span>: last actual month and exchange rates.</li>
+    <li>Update <span class="tab">SKU mapping-Pricing</span> and the <span class="tab">DSCR</span> sheets. For new SKUs, follow <span class="tab">Guide line for new SKU update</span>.</li>
+    <li>Move last month's raw data into the M-1 sheets, then paste the new <span class="tab">NNSBreakDown-RAW</span> and <span class="tab">Sales Vs Activity-RAW</span> extracts.</li>
+    <li>Review <span class="tab k">IMS Stock</span> and the Fayrouz arrivals. These drive <span class="tab">FCST</span> and <span class="tab">FCST Y+1</span>.</li>
+    <li>Check the driver sheets: Price Chnge, BDA, Distribution by Month and Target Split.</li>
+    <li>In <span class="tab">Consolidation RAW</span> and <span class="tab">Y+1</span>, copy M-1 values into the section marked "Copy M-1 before this section".</li>
+    <li>Press <code>Refresh_all</code>, then run the navy check sheets against Mosaic.</li>
+    <li>Review the 10 black sheets, then prepare the green Mosaic submission sheets.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Issues found in the file</h2>
+  <p>Rechecked against the copy saved 7 Oct 2026 at 22:05. Four issues are fixed. Four are still open.</p>
+  <h3>Open</h3>
+  <ul class="issues">
+    <li><span class="flag">Medium</span><span>The saved filter ranges (<code>_FilterDatabase</code>) on <span class="tab k">Gap OL</span> and <span class="tab">Summary for email</span> still point to <code>#REF!</code>.</span></li>
+    <li><span class="flag">Low</span><span><code>#DIV/0!</code> shows on the management sheets wherever the base value is zero: <span class="tab k">2027_Comparision</span> 108 cells, <span class="tab k">IMS Stock</span> 64 (stock cover days), <span class="tab k">2027 TTS</span> 20, <span class="tab k">2026 DF , NNS ,Tons,Cases</span> 18, <span class="tab k">Gap OL</span> 3. Outside the black sheets, <span class="tab">2027 Allowance</span> has 241. Wrapping the formulas or pivot % fields in IFERROR would clean up the review view.</span></li>
+    <li><span class="flag">Low</span><span>The header on <span class="tab k">2027 OL</span> still reads "2026 FY". Slicer caches for Business, Category and SKU Status are not connected to any pivot. <span class="tab">Sheet5</span> looks like scratch data.</span></li>
+    <li><span class="flag">Low</span><span><span class="tab">Consolidation RAW</span> and <span class="tab">Y+1</span> hold about 56k formulas, most of them SUMIFS/VLOOKUP over whole columns. These make up most of the recalculation time.</span></li>
+  </ul>
+  <h3>Fixed</h3>
+  <ul class="issues">
+    <li><span class="flag ok">Fixed</span><span><span class="tab">2027-Mosaic</span> and <span class="tab">2027 Allowance</span> now pivot from this workbook's <code>Table19</code> (<span class="tab">Y+1</span>). The link to the September file is gone.</span></li>
+    <li><span class="flag ok">Fixed</span><span><span class="tab k">Gap OL</span> no longer links to <code>Copy of Aug Target Split-new customer.xlsm</code>. The workbook has no external links left.</span></li>
+    <li><span class="flag ok">Fixed</span><span>The broken named ranges <code>M_1NNS</code>, <code>M_1Tons</code>, <code>M_NNS</code> and <code>MTons</code> are deleted.</span></li>
+    <li><span class="flag ok">Fixed</span><span><span class="tab k">CYvsNY</span> no longer shows <code>#N/A</code>. The 10 affected rows (81–90) were empty placeholders with code 0, and the SKU lookup now returns blank for them.</span></li>
+  </ul>
+</section>
+
+</div>

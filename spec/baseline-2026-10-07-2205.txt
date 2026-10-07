@@ -1,0 +1,204 @@
+﻿1|Dashboard||worksheets/sheet1.xml||f=0|ext=0|errCells=0|af=
+2|2026 DF , NNS ,Tons,Cases ||worksheets/sheet2.xml|<tabColor theme="1" tint="4.9989318521683403E-2"/>|f=69|ext=0|errCells=18|af=
+3|Gap OL||worksheets/sheet3.xml|<tabColor theme="1"/>|f=423|ext=0|errCells=3|af=
+4|Monthly Gap||worksheets/sheet4.xml|<tabColor theme="1"/>|f=1223|ext=0|errCells=0|af=
+5|TTS||worksheets/sheet5.xml|<tabColor theme="1"/>|f=342|ext=0|errCells=0|af=
+6|IMS Stock||worksheets/sheet6.xml|<tabColor theme="1"/>|f=8905|ext=0|errCells=64|af=B7:AR311
+7|2027_Comparision||worksheets/sheet7.xml|<tabColor theme="1"/>|f=6520|ext=0|errCells=108|af=W15:AH795
+8|TTS_Comparsion||worksheets/sheet8.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=4525|ext=0|errCells=19|af=
+9|2027 VS ICP||worksheets/sheet9.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=6256|ext=0|errCells=52|af=W15:AH795
+10|Ramadan||worksheets/sheet10.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=6256|ext=0|errCells=96|af=W15:AH795
+11|2027_by Quarter||worksheets/sheet11.xml|<tabColor theme="1"/>|f=8105|ext=0|errCells=0|af=AD9:AN777
+12|2027 OL||worksheets/sheet12.xml|<tabColor theme="1"/>|f=1|ext=0|errCells=0|af=
+13|2027 TTS||worksheets/sheet13.xml|<tabColor theme="1"/>|f=20|ext=0|errCells=20|af=
+14|CYvsNY||worksheets/sheet14.xml|<tabColor theme="1"/>|f=2007|ext=0|errCells=0|af=
+15|Activity Calander||worksheets/sheet15.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=0|ext=0|errCells=0|af=
+16|2027 price-rate||worksheets/sheet16.xml|<tabColor theme="2" tint="-0.249977111117893"/>|f=38|ext=0|errCells=0|af=
+17|Sheet5||worksheets/sheet17.xml||f=0|ext=0|errCells=0|af=
+18|DF||worksheets/sheet18.xml||f=12|ext=0|errCells=0|af=
+19|FCST||worksheets/sheet19.xml||f=436|ext=0|errCells=0|af=A3:U31
+20|FCST Y+1||worksheets/sheet20.xml||f=616|ext=0|errCells=0|af=A3:U41
+21|Summary for email||worksheets/sheet21.xml||f=38|ext=0|errCells=0|af=
+22|Fayrouz Target||worksheets/sheet22.xml||f=326|ext=0|errCells=0|af=
+23|Fayrouz-Arrival||worksheets/sheet23.xml||f=474|ext=0|errCells=0|af=
+24|Fayrouz 2027-Target||worksheets/sheet24.xml||f=652|ext=0|errCells=0|af=
+25|Fayrouz-Arrival-2027||worksheets/sheet25.xml||f=438|ext=0|errCells=0|af=
+26|Data Check||worksheets/sheet26.xml||f=0|ext=0|errCells=0|af=
+27|Target Split||worksheets/sheet27.xml|<tabColor theme="5" tint="-0.249977111117893"/>|f=830|ext=0|errCells=0|af=A2:U54
+28|Target Split Y+1||worksheets/sheet28.xml|<tabColor theme="5" tint="-0.249977111117893"/>|f=1495|ext=0|errCells=0|af=A2:U59
+29|BDA Allowance Assist||worksheets/sheet29.xml|<tabColor rgb="FFFFFF00"/>|f=223|ext=0|errCells=0|af=A3:G27
+30|BDA Allowance Assist Y+1||worksheets/sheet30.xml|<tabColor rgb="FFFFFF00"/>|f=242|ext=0|errCells=0|af=A3:G27
+31|Distribution by Month||worksheets/sheet31.xml|<tabColor rgb="FFFFFF00"/>|f=550|ext=0|errCells=0|af=A3:AB45
+32|Distribution by Month Y+1||worksheets/sheet32.xml|<tabColor rgb="FFFFFF00"/>|f=1116|ext=0|errCells=0|af=
+33|SKU mapping-Pricing||worksheets/sheet33.xml||f=204|ext=0|errCells=0|af=A1:N41
+34|Price Chnge||worksheets/sheet34.xml|<tabColor rgb="FFFF0000"/>|f=2546|ext=0|errCells=0|af=
+35|DSCR||worksheets/sheet35.xml|<tabColor theme="7" tint="0.39997558519241921"/>|f=75|ext=0|errCells=0|af=
+36|DSCR -LS||worksheets/sheet36.xml|<tabColor theme="7" tint="0.39997558519241921"/>|f=75|ext=0|errCells=0|af=
+37|DSCR Y+1||worksheets/sheet37.xml|<tabColor theme="7" tint="0.39997558519241921"/>|f=81|ext=0|errCells=0|af=
+38|Assist||worksheets/sheet38.xml||f=84|ext=0|errCells=0|af=
+39|2027 check||worksheets/sheet39.xml|<tabColor rgb="FF0070C0"/>|f=273|ext=0|errCells=8|af=
+40|Sales vs Activity 2027||worksheets/sheet40.xml|<tabColor rgb="FF00B0F0"/>|f=1608|ext=0|errCells=0|af=
+41|For-Fico||worksheets/sheet41.xml||f=818|ext=0|errCells=0|af=
+42|Fico Assist||worksheets/sheet42.xml||f=312|ext=0|errCells=0|af=
+43|for 3 year files||worksheets/sheet43.xml||f=144|ext=0|errCells=112|af=
+44|Consolidation RAW||worksheets/sheet44.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=26691|ext=0|errCells=0|af=
+45|Check||worksheets/sheet45.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=0|ext=0|errCells=0|af=
+46|Y+1||worksheets/sheet46.xml|<tabColor theme="2" tint="-0.499984740745262"/>|f=29581|ext=0|errCells=0|af=
+47|Sales Vs Activity-RAW||worksheets/sheet47.xml|<tabColor rgb="FFFFC000"/>|f=14208|ext=0|errCells=0|af=
+48|NNSBreakDown-RAW||worksheets/sheet48.xml|<tabColor rgb="FFFFC000"/>|f=414|ext=0|errCells=49|af=
+49|Sales Vs Activity-RAW M-1||worksheets/sheet49.xml|<tabColor theme="3" tint="0.39997558519241921"/>|f=7104|ext=0|errCells=0|af=
+50|NNSBreakDown-RAW M-1||worksheets/sheet50.xml|<tabColor theme="3" tint="0.39997558519241921"/>|f=414|ext=0|errCells=40|af=
+51|Check Mosaic Sales vs Activty||worksheets/sheet51.xml|<tabColor rgb="FF002060"/>|f=1050|ext=0|errCells=0|af=
+52|Check Mosaic NNSBreak||worksheets/sheet52.xml|<tabColor rgb="FF002060"/>|f=224|ext=0|errCells=22|af=
+53|NNSBrk vs Salsvsactivity||worksheets/sheet53.xml|<tabColor rgb="FF002060"/>|f=32|ext=0|errCells=4|af=
+54|Target Check ||worksheets/sheet54.xml||f=273|ext=0|errCells=12|af=
+55|From Target Split||worksheets/sheet55.xml||f=0|ext=0|errCells=0|af=
+56|Guide line for new SKU update||worksheets/sheet56.xml||f=0|ext=0|errCells=0|af=
+57|FCST_Mosaic Submission||worksheets/sheet57.xml|<tabColor rgb="FF00B050"/>|f=0|ext=0|errCells=0|af=
+58|OTAllowance %||worksheets/sheet58.xml|<tabColor rgb="FF00B050"/>|f=0|ext=0|errCells=10|af=
+59|2027-Mosaic||worksheets/sheet59.xml|<tabColor rgb="FF00B050"/>|f=0|ext=0|errCells=0|af=
+60|2027 Allowance||worksheets/sheet60.xml|<tabColor rgb="FF00B050"/>|f=0|ext=0|errCells=241|af=
+--- names
+_xlnm._FilterDatabase [8] = '2027 VS ICP'!$W$15:$AH$795
+_xlnm._FilterDatabase [10] = '2027_by Quarter'!$AD$9:$AN$777
+_xlnm._FilterDatabase [6] = '2027_Comparision'!$W$15:$AH$795
+_xlnm._FilterDatabase [28] = 'BDA Allowance Assist'!$A$3:$G$27
+_xlnm._FilterDatabase [29] = 'BDA Allowance Assist Y+1'!$A$3:$G$27
+_xlnm._FilterDatabase [13] = CYvsNY!$A$8:$Y$90
+_xlnm._FilterDatabase [30] = 'Distribution by Month'!$A$3:$AB$45
+_xlnm._FilterDatabase [18] = FCST!$A$3:$U$31
+_xlnm._FilterDatabase [19] = 'FCST Y+1'!$A$3:$U$41
+_xlnm._FilterDatabase [2] = 'Gap OL'!#REF!
+_xlnm._FilterDatabase [5] = 'IMS Stock'!$B$7:$AR$311
+_xlnm._FilterDatabase [3] = 'Monthly Gap'!$B$31:$T$75
+_xlnm._FilterDatabase [47] = 'NNSBreakDown-RAW'!$A$1:$AL$208
+_xlnm._FilterDatabase [49] = 'NNSBreakDown-RAW M-1'!$A$1:$AL$208
+_xlnm._FilterDatabase [9] = Ramadan!$W$15:$AH$795
+_xlnm._FilterDatabase [39] = 'Sales vs Activity 2027'!$A$1:$V$901
+_xlnm._FilterDatabase [46] = 'Sales Vs Activity-RAW'!$A$1:$T$7105
+_xlnm._FilterDatabase [48] = 'Sales Vs Activity-RAW M-1'!$A$1:$T$7105
+_xlnm._FilterDatabase [32] = 'SKU mapping-Pricing'!$A$1:$N$41
+_xlnm._FilterDatabase [20] = 'Summary for email'!#REF!
+_xlnm._FilterDatabase [26] = 'Target Split'!$A$2:$U$54
+_xlnm._FilterDatabase [27] = 'Target Split Y+1'!$A$2:$U$59
+_xlnm._FilterDatabase [7] = TTS_Comparsion!$AZ$9:$BF$564
+NativeTimeline_period [] = #N/A
+NativeTimeline_period1 [] = #N/A
+NativeTimeline_Unified_Period [] = #N/A
+NativeTimeline_Unified_Period1 [] = #N/A
+_xlnm.Print_Area [59] = '2027 Allowance'!$A$1:$M$59
+_xlnm.Print_Area [8] = '2027 VS ICP'!$C$13:$M$59
+_xlnm.Print_Area [6] = '2027_Comparision'!$C$13:$M$59
+_xlnm.Print_Area [18] = FCST!$B$2:$Q$29
+_xlnm.Print_Area [3] = 'Monthly Gap'!$C$29:$T$62
+_xlnm.Print_Area [9] = Ramadan!$C$13:$M$59
+Slicer_Business [] = #N/A
+Slicer_Category [] = #N/A
+Slicer_FCST_Split [] = #N/A
+Slicer_Main_Cat [] = #N/A
+Slicer_SKU_Status [] = #N/A
+Slicer_SKU_Tatus [] = #N/A
+Slicer_Status [] = #N/A
+Slicer_Status1 [] = #N/A
+Slicer_Status2 [] = #N/A
+Slicer_Status3 [] = #N/A
+--- ext links
+--- caches
+pivotCacheDefinition1.xml: <worksheetSource name="Table1"/>
+pivotCacheDefinition2.xml: <worksheetSource ref="A1:V1048576" sheet="Sales vs Activity 2027"/>
+pivotCacheDefinition3.xml: <worksheetSource ref="W15:AH5000" sheet="2027_Comparision"/>
+pivotCacheDefinition4.xml: <worksheetSource ref="W15:AH1323" sheet="2027_Comparision"/>
+pivotCacheDefinition5.xml: <worksheetSource ref="A3:BJ651" sheet="Y+1"/>
+pivotCacheDefinition6.xml: <worksheetSource ref="A1:AM1048576" sheet="NNSBreakDown-RAW"/>
+pivotCacheDefinition7.xml: <worksheetSource ref="A1:T1048576" sheet="Sales Vs Activity-RAW"/>
+pivotCacheDefinition8.xml: <worksheetSource ref="A1:U1048576" sheet="Sales Vs Activity-RAW"/>
+pivotCacheDefinition9.xml: <worksheetSource name="Table19"/>
+--- pivot->cache
+pivotTable1.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable10.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable11.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable12.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable13.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable14.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable15.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable16.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable17.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable18.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable19.xml.rels: ../pivotCache/pivotCacheDefinition3.xml
+pivotTable2.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable20.xml.rels: ../pivotCache/pivotCacheDefinition4.xml
+pivotTable21.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable22.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable23.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable24.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable25.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable26.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable27.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable28.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable29.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable3.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable30.xml.rels: ../pivotCache/pivotCacheDefinition2.xml
+pivotTable31.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable32.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable33.xml.rels: ../pivotCache/pivotCacheDefinition5.xml
+pivotTable34.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable35.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable36.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable37.xml.rels: ../pivotCache/pivotCacheDefinition7.xml
+pivotTable38.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable39.xml.rels: ../pivotCache/pivotCacheDefinition6.xml
+pivotTable4.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable40.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable41.xml.rels: ../pivotCache/pivotCacheDefinition6.xml
+pivotTable42.xml.rels: ../pivotCache/pivotCacheDefinition7.xml
+pivotTable43.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable44.xml.rels: ../pivotCache/pivotCacheDefinition8.xml
+pivotTable45.xml.rels: ../pivotCache/pivotCacheDefinition8.xml
+pivotTable46.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable47.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable48.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable49.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable5.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable50.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable51.xml.rels: ../pivotCache/pivotCacheDefinition9.xml
+pivotTable6.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable7.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable8.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+pivotTable9.xml.rels: ../pivotCache/pivotCacheDefinition1.xml
+--- sheet rels
+sheet10.xml.rels: pivotTable19.xml, pivotTable18.xml, pivotTable17.xml
+sheet11.xml.rels: pivotTable20.xml
+sheet12.xml.rels: pivotTable23.xml, pivotTable22.xml, pivotTable21.xml
+sheet13.xml.rels: pivotTable24.xml
+sheet14.xml.rels: pivotTable26.xml, pivotTable25.xml
+sheet18.xml.rels: pivotTable27.xml
+sheet2.xml.rels: pivotTable3.xml, pivotTable2.xml, pivotTable1.xml
+sheet26.xml.rels: pivotTable28.xml
+sheet3.xml.rels: pivotTable5.xml, pivotTable4.xml
+sheet39.xml.rels: pivotTable30.xml, pivotTable29.xml
+sheet4.xml.rels: pivotTable8.xml, pivotTable7.xml, pivotTable6.xml
+sheet42.xml.rels: pivotTable32.xml, pivotTable31.xml
+sheet43.xml.rels: pivotTable34.xml, pivotTable33.xml
+sheet45.xml.rels: pivotTable36.xml, pivotTable35.xml
+sheet5.xml.rels: pivotTable10.xml, pivotTable9.xml
+sheet51.xml.rels: pivotTable38.xml, pivotTable37.xml
+sheet52.xml.rels: pivotTable40.xml, pivotTable39.xml
+sheet53.xml.rels: pivotTable42.xml, pivotTable41.xml
+sheet54.xml.rels: pivotTable45.xml, pivotTable44.xml, pivotTable43.xml
+sheet57.xml.rels: pivotTable46.xml
+sheet58.xml.rels: pivotTable47.xml
+sheet59.xml.rels: pivotTable48.xml
+sheet60.xml.rels: pivotTable51.xml, pivotTable50.xml, pivotTable49.xml
+sheet7.xml.rels: pivotTable13.xml, pivotTable12.xml, pivotTable11.xml
+sheet9.xml.rels: pivotTable16.xml, pivotTable15.xml, pivotTable14.xml
+--- slicers
+slicerCache1.xml: FCST Split pivots=38:PivotTable6
+slicerCache10.xml: SKU Status pivots=
+slicerCache2.xml: Status pivots=71:PivotTable7,71:PivotTable4,71:PivotTable6
+slicerCache3.xml: Main_Cat pivots=78:PivotTable7
+slicerCache4.xml: Status pivots=78:PivotTable7
+slicerCache5.xml: SKU Tatus pivots=92:PivotTable1,92:PivotTable2,92:PivotTable5
+slicerCache6.xml: Status pivots=97:PivotTable7,97:PivotTable4,97:PivotTable6
+slicerCache7.xml: Status pivots=103:PivotTable7,103:PivotTable4,103:PivotTable6
+slicerCache8.xml: Business pivots=
+slicerCache9.xml: Category pivots=
