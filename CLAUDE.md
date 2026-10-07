@@ -30,6 +30,7 @@ Open:
 - Never open or run the macros. Read the file as data only.
 - In a cloud / Linux session, use Python: `openpyxl.load_workbook(path, data_only=False)` for formulas, `data_only=True` for cached values, `keep_vba=True` if writing. Tab colours: `ws.sheet_properties.tabColor`.
 - On the user's Windows laptop there is no Python: copy the xlsm to a .zip, `Expand-Archive`, then run `spec/recheck.ps1 <xlsm> <unzip-dir>`, `spec/peek.ps1`, `spec/deps.ps1`.
+- `spec/pre-msr-review.html` is a browser page for the black-tab sheets: open it, pick the xlsm, and each management sheet shows as a tab with the workbook's table, autofilter and pivot-label filters, a Category quick filter, frozen panes and hidden rows kept. It reads the file locally (SheetJS + JSZip from cdnjs), never runs macros, and "Save report" writes a standalone HTML copy of the view. Report areas per sheet are set in `MAIN_COLS` at the top of its script; update them if a sheet's layout moves.
 - `spec/baseline-2026-10-07-2205.txt` is the recheck output of the last checked version. Diff the new output against it to find what changed, then refresh the baseline.
 
 ## Working rules

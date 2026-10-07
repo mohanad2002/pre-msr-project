@@ -1,0 +1,1026 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pre-MSR Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Sans:wght@500;600;700&display=swap">
+<style>
+/* Layout: a dark band on top (the workbook's black management tabs), a light working
+   surface below with one full-height sheet grid. Data stays dense; chrome stays quiet. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --surface-2: #f5f7f9;
+  --ink: #16202a;
+  --muted: #5b6876;
+  --line: #e1e6eb;
+  --line-strong: #c3ccd6;
+  --band: #131a21;
+  --band-2: #1c252e;
+  --band-ink: #eaeff4;
+  --band-muted: #97a5b3;
+  --hl: #f0b429;
+  --hl-ink: #1d1500;
+  --hl-soft: #fcf1d4;
+  --link: #2753b3;
+  --pos: #187a48;
+  --neg: #bf3a2b;
+  --err: #9c5a00;
+  --err-bg: #fff3dc;
+  --rh: #e8edf3;
+  --sub: #f3f6f9;
+  --grand: #e2e8ef;
+  --focus: #2753b3;
+  --shadow: 0 10px 30px rgba(15, 25, 35, .16), 0 2px 6px rgba(15, 25, 35, .08);
+  --font-ui: "Instrument Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1317; --surface: #151c22; --surface-2: #1a222a; --ink: #e3e9ef; --muted: #93a1af;
+    --line: #242e37; --line-strong: #34414d; --band: #090d11; --band-2: #141b22; --band-ink: #eaeff4; --band-muted: #8f9dab;
+    --hl: #f0b429; --hl-ink: #1d1500; --hl-soft: #3a2f12; --link: #8fb0ff; --pos: #4cc38a; --neg: #ff7f73;
+    --err: #ffb454; --err-bg: #33270f; --rh: #1e2832; --sub: #19222a; --grand: #222d38; --focus: #8fb0ff;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1317; --surface: #151c22; --surface-2: #1a222a; --ink: #e3e9ef; --muted: #93a1af;
+  --line: #242e37; --line-strong: #34414d; --band: #090d11; --band-2: #141b22; --band-ink: #eaeff4; --band-muted: #8f9dab;
+  --hl: #f0b429; --hl-ink: #1d1500; --hl-soft: #3a2f12; --link: #8fb0ff; --pos: #4cc38a; --neg: #ff7f73;
+  --err: #ffb454; --err-bg: #33270f; --rh: #1e2832; --sub: #19222a; --grand: #222d38; --focus: #8fb0ff;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-data); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.app { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* ---------- band ---------- */
+.band { background: var(--band); color: var(--band-ink); padding-inline: 16px; }
+.band-top { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; padding-block: 12px 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand b { font: 700 17px/1.1 var(--font-ui); letter-spacing: .01em; white-space: nowrap; }
+.brand span { color: var(--band-muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.band-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  border-radius: 7px; padding: 6px 11px; font: 600 12.5px/1.2 var(--font-ui); cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn[disabled] { opacity: .45; cursor: default; }
+.band .btn { background: var(--band-2); color: var(--band-ink); border-color: #33404c; }
+.band .btn:hover { border-color: var(--band-muted); }
+.btn.primary { background: var(--hl); color: var(--hl-ink); border-color: var(--hl); }
+.band .btn.primary { background: var(--hl); color: var(--hl-ink); border-color: var(--hl); }
+.btn svg { width: 14px; height: 14px; flex: none; }
+
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; margin-inline: -4px; padding-inline: 4px; }
+.tab { position: relative; flex: none; border: 0; background: transparent; color: var(--band-muted); cursor: pointer;
+  padding: 9px 13px 11px; font: 600 13px/1.2 var(--font-ui); border-radius: 8px 8px 0 0; display: inline-flex; align-items: center; gap: 7px; }
+.tab:hover { color: var(--band-ink); background: var(--band-2); }
+.tab[aria-selected="true"] { color: var(--ink); background: var(--bg); }
+.tab[aria-selected="true"]::before { content: ""; position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--hl); }
+.tab .dot { font: 600 10.5px/1 var(--font-data); padding: 2px 5px; border-radius: 99px; background: #4a2f05; color: #ffc861; }
+.tab[aria-selected="true"] .dot { background: var(--err-bg); color: var(--err); }
+
+/* ---------- toolbar ---------- */
+.toolbar { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 10px; background: var(--bg); }
+.tb-row { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
+.sheet-title { font: 700 19px/1.15 var(--font-ui); margin: 0; text-wrap: balance; }
+.stat { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.stat strong { color: var(--ink); font-weight: 600; }
+.search { position: relative; flex: 0 1 280px; min-width: 160px; }
+.search input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 6px 10px 6px 30px; font-size: 13px; }
+.search svg { position: absolute; left: 9px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 99px; padding: 4px 10px 4px 6px; font: 600 12px/1.2 var(--font-ui);
+  background: var(--surface); cursor: pointer; user-select: none; color: var(--muted); }
+.tg input { position: absolute; opacity: 0; pointer-events: none; }
+.tg i { width: 22px; height: 13px; border-radius: 99px; background: var(--line-strong); position: relative; flex: none; transition: background .15s; }
+.tg i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--surface); transition: transform .15s; }
+.tg input:checked + i { background: var(--ink); }
+.tg input:checked + i::after { transform: translateX(9px); }
+.tg:has(input:checked) { color: var(--ink); }
+.tg:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.spacer { flex: 1; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chips .lbl { font: 600 11px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.chip { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 99px; padding: 4px 11px; font: 600 12.5px/1.2 var(--font-ui); cursor: pointer; }
+.chip:hover { border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.filters-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink); background: var(--hl-soft); border-radius: 7px; padding: 4px 6px 4px 10px; }
+.linkbtn { border: 0; background: none; color: var(--link); font: 600 12.5px/1.2 var(--font-ui); cursor: pointer; padding: 2px 4px; border-radius: 5px; }
+
+/* ---------- grid ---------- */
+.gridwrap { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; }
+.gridscroll { flex: 1; min-width: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; position: relative; }
+table.grid { border-collapse: separate; border-spacing: 0; font: 12.5px/1.35 var(--font-data); font-variant-numeric: tabular-nums; }
+.grid td, .grid th { padding: 4px 9px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); background: var(--surface); white-space: nowrap; text-align: left; vertical-align: middle; }
+.grid td { max-width: 34ch; overflow: hidden; text-overflow: ellipsis; }
+.grid thead th { position: sticky; top: 0; z-index: 5; background: var(--surface-2); color: var(--muted); font: 600 10.5px/1 var(--font-data); padding: 5px 9px; text-align: center; border-bottom-color: var(--line-strong); }
+.grid th.rn { position: sticky; left: 0; z-index: 2; background: var(--surface-2); color: var(--muted); font: 500 10.5px/1 var(--font-data); text-align: right; padding: 4px 7px; min-width: 22px; }
+.grid thead th.rn { z-index: 7; }
+.grid.norefs thead th { font-size: 0; padding-block: 0; height: 0; border-bottom: 0; line-height: 0; }
+.grid.norefs th.rn { font-size: 0; padding: 0; min-width: 0; width: 0; border-right: 0; }
+.grid td.num { text-align: right; }
+.grid td.sp, .grid th.sp { padding: 0; min-width: 10px; width: 10px; background: var(--surface-2); }
+.grid tr.gap > * { height: 8px; padding: 0; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 0; }
+.grid td.pos { color: var(--pos); }
+.grid td.neg { color: var(--neg); }
+.grid td.err { color: var(--err); }
+.grid td.err span { background: var(--err-bg); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+.grid tr.cap > td { font-weight: 600; color: var(--muted); }
+.grid tr.rh > td, .grid tr.rh > th { background: var(--rh); font-weight: 600; color: var(--ink); border-bottom: 1px solid var(--line-strong); }
+.grid tr.rh { }
+.grid tr.rhs > td, .grid tr.rhs > th { position: sticky; z-index: 3; }
+.grid tr.sub > td { background: var(--sub); font-weight: 600; }
+.grid tr.grand > td { background: var(--grand); font-weight: 700; border-top: 1px solid var(--line-strong); }
+.grid td.fzc { position: sticky; z-index: 2; }
+.grid tr.fzr > td, .grid tr.fzr > th { position: sticky; z-index: 3; }
+.grid tr.fzr > td.fzc, .grid tr.fzr > th.rn, .grid tr.rhs > td.fzc, .grid tr.rhs > th.rn { z-index: 4; }
+.grid td.lastfz { box-shadow: inset -2px 0 0 var(--line-strong); }
+.grid tr.lastfzr > td, .grid tr.lastfzr > th { border-bottom: 2px solid var(--line-strong); }
+.grid tr:not(.rh):not(.gap):hover > td { background-image: linear-gradient(var(--hl-soft), var(--hl-soft)); }
+.grid .hcell { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.grid td.num .hcell { justify-content: flex-end; }
+.grid .hcell > span { overflow: hidden; text-overflow: ellipsis; }
+.fbtn { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); cursor: pointer; padding: 0; }
+.fbtn:hover { color: var(--ink); border-color: var(--muted); }
+.fbtn svg { width: 10px; height: 10px; }
+.fbtn.on { background: var(--hl); border-color: var(--hl); color: var(--hl-ink); }
+
+/* ---------- popover ---------- */
+.pop { position: fixed; z-index: 50; width: 280px; max-width: calc(100vw - 32px); background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: min(70vh, 460px); }
+.pop header { padding: 10px 12px 6px; font: 700 13px/1.3 var(--font-ui); display: flex; justify-content: space-between; gap: 8px; }
+.pop header small { color: var(--muted); font: 500 11.5px/1.3 var(--font-data); }
+.pop .ps { padding: 0 12px 8px; }
+.pop .ps input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 8px; font-size: 12.5px; background: var(--surface); }
+.pop ul { list-style: none; margin: 0; padding: 4px 6px; overflow: auto; border-block: 1px solid var(--line); flex: 1; min-height: 60px; }
+.pop li label { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 5px; cursor: pointer; font-size: 12.5px; }
+.pop li label:hover { background: var(--surface-2); }
+.pop li label span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop li label em { font-style: normal; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pop li.all label { font-weight: 600; }
+.pop footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 12px; }
+
+/* ---------- landing ---------- */
+.landing { flex: 1; min-height: 0; overflow: auto; padding: 28px 16px 40px; }
+.landing-inner { max-width: 880px; margin: 0 auto; display: grid; gap: 22px; }
+.landing h1 { font: 700 clamp(24px, 3.4vw, 34px)/1.12 var(--font-ui); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.landing p.lead { margin: 0; color: var(--muted); font-size: 15px; max-width: 62ch; }
+.drop { display: grid; place-items: center; gap: 10px; text-align: center; padding: 34px 20px; border: 2px dashed var(--line-strong); border-radius: 14px; background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--ink); background: var(--surface-2); }
+.drop b { font: 700 16px/1.3 var(--font-ui); }
+.drop small { color: var(--muted); }
+.drop svg { width: 34px; height: 34px; color: var(--muted); }
+.status { min-height: 20px; font-size: 13px; color: var(--muted); }
+.status.bad { color: var(--neg); font-weight: 600; }
+.preview { display: grid; gap: 10px; }
+.preview h2 { font: 600 11.5px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fake-tabs { display: flex; flex-wrap: wrap; gap: 4px; background: var(--band); padding: 8px; border-radius: 10px; }
+.fake-tabs span { color: var(--band-muted); font: 600 12px/1 var(--font-ui); padding: 7px 10px; border-radius: 6px; }
+.fake-tabs span:first-child { background: var(--bg); color: var(--ink); }
+.feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.feats li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+.feats li b { display: block; color: var(--ink); font: 600 13.5px/1.3 var(--font-ui); margin-bottom: 3px; }
+.privacy { font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.privacy svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 8px 14px; border-radius: 8px; font: 600 13px/1.3 var(--font-ui); z-index: 60; box-shadow: var(--shadow); }
+.copybox { position: fixed; inset: 10% 16px auto; max-width: 720px; margin: 0 auto; z-index: 60; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 12px; display: grid; gap: 8px; }
+.copybox textarea { width: 100%; box-sizing: border-box; height: 40vh; font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+
+@media (max-width: 640px) {
+  .sheet-title { font-size: 17px; }
+  .search { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="band">
+    <div class="band-top">
+      <div class="brand"><b>Pre-MSR Review</b><span id="fileInfo">Management sheets, black tabs</span></div>
+      <div class="band-actions">
+        <button class="btn" id="saveBtn" type="button" hidden title="Save the current view as one HTML file you can share">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 12.5h10"/></svg>Save report</button>
+        <label class="btn primary" for="fileInput" id="openBtn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 4.5v8h11v-6H8L6.5 4.5h-4Z"/></svg>Open workbook</label>
+        <input type="file" id="fileInput" accept=".xlsm,.xlsx,.xlsb,.xls" hidden>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Management sheets" hidden></nav>
+  </header>
+
+  <section class="landing" id="landing">
+    <div class="landing-inner">
+      <div>
+        <h1>Open this month's Pre-MSR workbook</h1>
+      </div>
+      <p class="lead">Pick the .xlsm file. The black-tab management sheets open as tabs, with the workbook's own filters, totals and frozen panes kept.</p>
+      <label class="drop" id="drop" for="fileInput">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 15V4m0 0L8 8m4-4 4 4M4 15v4h16v-4"/></svg>
+        <b>Drop the workbook here or click to choose it</b>
+        <small>For example <code>Pre-MSR  Oct.xlsm</code>. Reading a 5 MB file takes a few seconds.</small>
+      </label>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="preview">
+        <h2>Tabs you will get</h2>
+        <div class="fake-tabs" aria-hidden="true">
+          <span>2026 DF, NNS, Tons, Cases</span><span>Gap OL</span><span>Monthly Gap</span><span>TTS</span><span>IMS Stock</span><span>2027_Comparision</span><span>2027_by Quarter</span><span>2027 OL</span><span>2027 TTS</span><span>CYvsNY</span>
+        </div>
+      </div>
+      <ul class="feats">
+        <li><b>Excel filters kept</b>Tables, autofilter ranges and pivot row labels get a filter button on their header. Saved filters, like Monthly Gap's, are applied.</li>
+        <li><b>Category quick filter</b>One click shows a single category across every table on the sheet, like the Monthly Gap buttons.</li>
+        <li><b>Report area first</b>Helper pivots to the right are tucked away. Turn on Working areas to see them.</li>
+        <li><b>Gaps in colour</b>Gap, difference and growth columns show increases in green and decreases in red. Error cells are marked.</li>
+      </ul>
+      <p class="privacy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+        The file is read inside this browser tab. Nothing is uploaded or sent anywhere, and macros are never run.</p>
+    </div>
+  </section>
+
+  <section id="sheetView" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div class="toolbar">
+      <div class="tb-row">
+        <h2 class="sheet-title" id="sheetTitle"></h2>
+        <span class="stat" id="stat"></span>
+        <span class="spacer"></span>
+        <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+          <input id="search" type="search" placeholder="Search rows (press /)" aria-label="Search rows in this sheet" autocomplete="off"></div>
+        <button class="btn" id="copyBtn" type="button" title="Copy the rows you see, ready to paste into Excel">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1 1 0 0 1 4 2.5h6.5"/></svg>Copy view</button>
+      </div>
+      <div class="tb-row">
+        <div class="chips" id="chips"></div>
+        <span id="filtersNote"></span>
+        <span class="spacer"></span>
+        <div class="toggles">
+          <label class="tg" id="tgWorkWrap"><input type="checkbox" id="tgWork"><i></i>Working areas</label>
+          <label class="tg"><input type="checkbox" id="tgHidden"><i></i>Hidden rows &amp; columns</label>
+          <label class="tg"><input type="checkbox" id="tgRefs"><i></i>Cell references</label>
+        </div>
+      </div>
+    </div>
+    <div class="gridwrap"><div class="gridscroll" id="gridScroll"></div></div>
+  </section>
+</div>
+<style id="dynStyle"></style>
+<script id="pmr-data" type="application/json"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+// Captured before any rendering, so "Save report" can re-emit this same page with data embedded.
+const PAGE_SOURCE = '<!doctype html>\n' + document.documentElement.outerHTML;
+
+// Black-tab sheets known from the October file. Used only if the tab colours cannot be read.
+const KNOWN_BLACK = ['2026 DF , NNS ,Tons,Cases', 'Gap OL', 'Monthly Gap', 'TTS', 'IMS Stock', '2027_Comparision',
+  '2027_by Quarter', '2027 OL', '2027 TTS', 'CYvsNY'];
+// Report area per sheet. Columns outside it are helper pivots and lookups, shown with "Working areas".
+const MAIN_COLS = {
+  '2026 DF , NNS ,Tons,Cases': 'A:W', 'Gap OL': 'B:V', 'Monthly Gap': 'A:AQ', 'TTS': 'A:V', 'IMS Stock': 'A:AS',
+  '2027_Comparision': 'A:V', '2027_by Quarter': 'B:T', 'CYvsNY': 'A:AC'
+};
+const CAT_RE = /^(category|cat|main_cat|main cat|caegrory|catdesc|business)$/i;
+const GAP_RE = /(^|[^a-z])(gap|diff|difference|var|variance|grth|grow|growth|inc%?)([^a-z]|$)/i;
+
+const $ = id => document.getElementById(id);
+const els = {
+  landing: $('landing'), sheetView: $('sheetView'), tabs: $('tabs'), fileInput: $('fileInput'), drop: $('drop'), status: $('status'),
+  fileInfo: $('fileInfo'), title: $('sheetTitle'), stat: $('stat'), search: $('search'), chips: $('chips'), filtersNote: $('filtersNote'),
+  tgWork: $('tgWork'), tgWorkWrap: $('tgWorkWrap'), tgHidden: $('tgHidden'), tgRefs: $('tgRefs'), grid: $('gridScroll'),
+  copyBtn: $('copyBtn'), saveBtn: $('saveBtn'), dyn: $('dynStyle')
+};
+const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('pmr.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('pmr.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
+};
+
+// ---------- small helpers ----------
+const colName = c => { let s = ''; c += 1; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
+const colIndex = s => { let n = 0; for (const ch of s.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
+function parseRef(ref) {
+  const m = /^\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/i.exec(String(ref || '').trim());
+  if (!m) return null;
+  const c0 = colIndex(m[1]), r0 = +m[2] - 1, c1 = m[3] ? colIndex(m[3]) : c0, r1 = m[4] ? +m[4] - 1 : r0;
+  return { r0: Math.min(r0, r1), c0: Math.min(c0, c1), r1: Math.max(r0, r1), c1: Math.max(c0, c1) };
+}
+function parseCols(spec) { const [a, b] = spec.split(':'); return { c0: colIndex(a), c1: colIndex(b || a) }; }
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const attr = (tag, name) => { const m = new RegExp('(?:^|\\s)' + name.replace(':', '\\:') + '="([^"]*)"').exec(tag); return m ? m[1] : null; };
+const unxml = s => s == null ? s : s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+function resolvePath(baseFile, target) {
+  if (target.startsWith('/')) return target.slice(1);
+  const parts = baseFile.split('/'); parts.pop();
+  for (const seg of target.split('/')) { if (seg === '..') parts.pop(); else if (seg !== '.') parts.push(seg); }
+  return parts.join('/');
+}
+const normName = n => String(n).trim();
+const nextFrame = () => new Promise(r => setTimeout(r, 30));
+const fmtInt = n => n.toLocaleString('en-US');
+
+function setStatus(msg, bad) { els.status.textContent = msg; els.status.classList.toggle('bad', !!bad); }
+let toastTimer;
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
+}
+
+// ---------- reading the workbook package (tab colours, tables, pivots, filters, panes) ----------
+async function readRels(zip, file) {
+  const relsPath = file.replace(/([^/]+)$/, '_rels/$1.rels');
+  const f = zip.file(relsPath); if (!f) return [];
+  const xml = await f.async('string');
+  return [...xml.matchAll(/<Relationship\b[^>]*>/g)].map(m => ({
+    id: attr(m[0], 'Id'), type: attr(m[0], 'Type') || '', external: attr(m[0], 'TargetMode') === 'External',
+    target: resolvePath(file, unxml(attr(m[0], 'Target') || ''))
+  }));
+}
+function isBlackTab(tab) {
+  if (!tab) return false;
+  if (tab.theme != null) return tab.theme === '1' && (tab.tint || 0) < 0.5;
+  if (tab.rgb) {
+    const hex = tab.rgb.slice(-6); const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+    return Math.max(r, g, b) < 0x40; // black or near-black; dark blue (002060) and red tabs are other groups
+  }
+  return false;
+}
+function parseFilterColumns(xml) {
+  const out = {};
+  if (!xml) return out;
+  for (const m of xml.matchAll(/<filterColumn\b([^>]*)>([\s\S]*?)<\/filterColumn>/g)) {
+    const col = +attr(m[1], 'colId');
+    const fm = /<filters\b([^>]*)>([\s\S]*?)<\/filters>|<filters\b([^>]*)\/>/.exec(m[2]);
+    if (!fm) continue; // custom, top-10 and colour filters are not reproduced
+    const vals = [...(fm[2] || '').matchAll(/<filter\b[^>]*val="([^"]*)"/g)].map(x => unxml(x[1]).trim());
+    if (attr(fm[1] || fm[3] || '', 'blank') === '1') vals.push('');
+    out[col] = vals;
+  }
+  return out;
+}
+function sheetDetails(xml) {
+  const hiddenRows = [];
+  for (const m of xml.matchAll(/<row\b[^>]*>/g)) { const h = attr(m[0], 'hidden'); if (h === '1' || h === 'true') hiddenRows.push(+attr(m[0], 'r') - 1); }
+  const hiddenCols = [];
+  const cols = /<cols>([\s\S]*?)<\/cols>/.exec(xml);
+  if (cols) for (const m of cols[1].matchAll(/<col\b[^>]*>/g)) {
+    const h = attr(m[0], 'hidden');
+    if (h === '1' || h === 'true') { const a = +attr(m[0], 'min') - 1, b = Math.min(+attr(m[0], 'max') - 1, 1000); for (let c = a; c <= b; c++) hiddenCols.push(c); }
+  }
+  let pane = null;
+  const pm = /<pane\b[^>]*>/.exec(xml.slice(0, 6000));
+  if (pm && /frozen/i.test(attr(pm[0], 'state') || '')) pane = { x: Math.round(+attr(pm[0], 'xSplit') || 0), y: Math.round(+attr(pm[0], 'ySplit') || 0) };
+  let autoFilter = null;
+  const end = xml.lastIndexOf('</sheetData>');
+  if (end > 0) {
+    const tail = xml.slice(end);
+    const am = /<autoFilter\b([^>]*?)(?:\/>|>([\s\S]*?)<\/autoFilter>)/.exec(tail);
+    if (am) autoFilter = { ref: attr(am[1], 'ref'), filters: parseFilterColumns(am[2]) };
+  }
+  return { hiddenRows, hiddenCols, pane, autoFilter };
+}
+async function readPackage(zip) {
+  const wbFile = zip.file('xl/workbook.xml');
+  if (!wbFile) throw new Error('This file is not an Excel workbook (.xlsx or .xlsm).');
+  const wbXml = await wbFile.async('string');
+  const rels = new Map((await readRels(zip, 'xl/workbook.xml')).map(r => [r.id, r]));
+  const sheets = [];
+  for (const m of wbXml.matchAll(/<sheet\b[^>]*>/g)) {
+    const rel = rels.get(attr(m[0], 'r:id'));
+    if (!rel || !/\/worksheet$/.test(rel.type)) continue;
+    sheets.push({ name: unxml(attr(m[0], 'name')), state: attr(m[0], 'state') || 'visible', path: rel.target });
+  }
+  for (const s of sheets) {
+    const f = zip.file(s.path); if (!f) continue;
+    const xml = await f.async('string');
+    const pr = /<sheetPr\b[\s\S]*?(?:<\/sheetPr>|\/>)/.exec(xml.slice(0, 5000));
+    const tab = pr && /<tabColor\b[^>]*>/.exec(pr[0]);
+    s.tab = tab ? { theme: attr(tab[0], 'theme'), rgb: attr(tab[0], 'rgb'), tint: parseFloat(attr(tab[0], 'tint') || '0') } : null;
+    s.black = isBlackTab(s.tab) && s.state === 'visible';
+    s.xml = xml;
+  }
+  let picked = sheets.filter(s => s.black);
+  let fallback = false;
+  if (!picked.length) { picked = sheets.filter(s => KNOWN_BLACK.includes(normName(s.name))); fallback = true; }
+  if (!picked.length) { picked = sheets.filter(s => s.state === 'visible'); fallback = true; }
+  for (const s of picked) {
+    Object.assign(s, sheetDetails(s.xml));
+    s.tables = []; s.pivots = [];
+    for (const r of await readRels(zip, s.path)) {
+      const f = zip.file(r.target); if (!f || r.external) continue;
+      if (/\/table$/.test(r.type)) {
+        const x = await f.async('string'); const tag = /<table\b[^>]*>/.exec(x)[0];
+        const af = /<autoFilter\b([^>]*?)(?:\/>|>([\s\S]*?)<\/autoFilter>)/.exec(x);
+        s.tables.push({ name: attr(tag, 'displayName') || attr(tag, 'name'), ref: attr(tag, 'ref'),
+          header: attr(tag, 'headerRowCount') !== '0', totals: +(attr(tag, 'totalsRowCount') || 0), filters: af ? parseFilterColumns(af[2]) : {} });
+      } else if (/\/pivotTable$/.test(r.type)) {
+        const x = await f.async('string'); const tag = /<pivotTableDefinition\b[^>]*>/.exec(x); const loc = /<location\b[^>]*>/.exec(x);
+        if (!loc) continue;
+        s.pivots.push({ name: tag ? attr(tag[0], 'name') : 'Pivot', ref: attr(loc[0], 'ref'),
+          firstDataRow: +(attr(loc[0], 'firstDataRow') || 1), firstDataCol: +(attr(loc[0], 'firstDataCol') || 1) });
+      }
+    }
+  }
+  for (const s of sheets) delete s.xml;
+  return { picked, fallback };
+}
+
+// ---------- model ----------
+// A sheet model is plain JSON so it can be embedded in a saved report:
+// { name, cells: [[r, c, text, number|null, isError]], hiddenRows, hiddenCols, pane, main, regions, merges }
+function buildModel(meta, ws) {
+  const cells = [];
+  for (const k in ws) {
+    if (k[0] === '!') continue;
+    const cell = ws[k]; const a = XLSX.utils.decode_cell(k);
+    let text = cell.t === 'b' ? (cell.v ? 'TRUE' : 'FALSE') : (cell.w != null ? cell.w : (cell.v == null ? '' : String(cell.v)));
+    text = String(text).trim();
+    if (text === '') continue;
+    cells.push([a.r, a.c, text, cell.t === 'n' && isFinite(cell.v) ? cell.v : null, cell.t === 'e' ? 1 : 0]);
+  }
+  const regions = [];
+  const overlaps = g => regions.some(o => !(g.r1 < o.r0 || g.r0 > o.r1 || g.c1 < o.c0 || g.c0 > o.c1));
+  const shift = (f, c0) => { const o = {}; for (const k in f) o[+k + c0] = f[k]; return o; };
+  const range = (a, b) => { const o = []; for (let c = a; c <= b; c++) o.push(c); return o; };
+  for (const t of meta.tables || []) {
+    const g = parseRef(t.ref); if (!g) continue;
+    const reg = { kind: 'table', name: t.name, r0: g.r0, c0: g.c0, r1: g.r1 - t.totals, c1: g.c1, hdr: t.header ? g.r0 : g.r0 - 1,
+      fcols: range(g.c0, g.c1), fill: false, init: shift(t.filters, g.c0), owns: Object.keys(t.filters).length > 0 };
+    if (!overlaps(reg)) regions.push(reg);
+  }
+  if (meta.autoFilter && meta.autoFilter.ref) {
+    const g = parseRef(meta.autoFilter.ref);
+    if (g) {
+      const reg = { kind: 'filter', name: 'Filter', r0: g.r0, c0: g.c0, r1: g.r1, c1: g.c1, hdr: g.r0, fcols: range(g.c0, g.c1), fill: false,
+        init: shift(meta.autoFilter.filters, g.c0), owns: Object.keys(meta.autoFilter.filters).length > 0 };
+      if (!overlaps(reg)) regions.push(reg);
+    }
+  }
+  for (const p of meta.pivots || []) {
+    const g = parseRef(p.ref); if (!g) continue;
+    const hdr = g.r0 + Math.max(1, p.firstDataRow) - 1;
+    if (hdr >= g.r1) continue;
+    const reg = { kind: 'pivot', name: p.name, r0: g.r0, c0: g.c0, r1: g.r1, c1: g.c1, hdr,
+      fcols: range(g.c0, Math.min(g.c1, g.c0 + Math.max(1, p.firstDataCol) - 1)), fill: true, init: {}, owns: false };
+    if (!overlaps(reg)) regions.push(reg);
+  }
+  regions.sort((a, b) => a.r0 - b.r0 || a.c0 - b.c0);
+  const name = normName(meta.name);
+  return {
+    name: meta.name, cells, hiddenRows: meta.hiddenRows || [], hiddenCols: meta.hiddenCols || [], pane: meta.pane || null,
+    main: MAIN_COLS[name] ? parseCols(MAIN_COLS[name]) : null, regions,
+    merges: (ws['!merges'] || []).map(m => [m.s.r, m.s.c, m.e.r, m.e.c])
+  };
+}
+
+// Runtime structures built once per sheet, the first time it is opened.
+function prepare(model) {
+  if (model._p) return model._p;
+  const map = new Map(); const rowCells = new Map(); const colCount = new Map();
+  let r0 = Infinity, r1 = -1, c0 = Infinity, c1 = -1;
+  for (const cell of model.cells) {
+    const [r, c] = cell;
+    map.set(r * 16384 + c, cell);
+    if (!rowCells.has(r)) rowCells.set(r, []);
+    rowCells.get(r).push(cell);
+    colCount.set(c, (colCount.get(c) || 0) + 1);
+    if (r < r0) r0 = r; if (r > r1) r1 = r; if (c < c0) c0 = c; if (c > c1) c1 = c;
+  }
+  for (const list of rowCells.values()) list.sort((a, b) => a[1] - b[1]);
+  const text = (r, c) => { const x = map.get(r * 16384 + c); return x ? x[2] : ''; };
+  const P = { map, rowCells, colCount, text, bounds: r1 < 0 ? null : { r0, r1, c0, c1 },
+    hiddenRows: new Set(model.hiddenRows), hiddenCols: new Set(model.hiddenCols), merges: model.merges };
+  model.regions.forEach((g, i) => prepRegion(g, i, P));
+  model._p = P;
+  return P;
+}
+function prepRegion(g, idx, P) {
+  g.idx = idx;
+  g.filters = new Map(Object.entries(g.init || {}).map(([c, v]) => [+c, new Set(v)]));
+  g.vals = new Map(); g.flag = new Map();
+  const carry = new Map();
+  for (let r = g.hdr + 1; r <= g.r1; r++) {
+    const raw = g.fcols.map(c => P.text(r, c));
+    let flag = 0;
+    if (raw.some(t => /^grand total$/i.test(t))) flag = 2;
+    else if (raw.some(t => /\S\s+total$/i.test(t) || /^total\s+\S/i.test(t))) flag = 1;
+    const v = new Map();
+    g.fcols.forEach((c, i) => {
+      let t = raw[i];
+      if (flag === 1) { v.set(c, t ? t.replace(/\s+total$/i, '').replace(/^total\s+/i, '') : null); return; }
+      if (g.fill && flag === 0) {
+        if (t) { carry.set(c, t); for (const c2 of g.fcols) if (c2 > c) carry.delete(c2); }
+        else if (carry.has(c)) t = carry.get(c);
+      }
+      v.set(c, t);
+    });
+    g.vals.set(r, v); g.flag.set(r, flag);
+  }
+  // A "Total" row is a subtotal only if its name without "Total" is a real value in that column
+  // ("Coffee Total" with Coffee rows). Otherwise it is an ordinary label, such as IMS Stock's "Total  Stock".
+  const normal = new Map(g.fcols.map(c => [c, new Set()]));
+  for (const [r, v] of g.vals) if (g.flag.get(r) === 0) for (const c of g.fcols) normal.get(c).add(v.get(c));
+  for (const [r, v] of g.vals) {
+    if (g.flag.get(r) !== 1) continue;
+    let real = false;
+    for (const c of g.fcols) {
+      const raw = P.text(r, c);
+      if ((/\S\s+total$/i.test(raw) || /^total\s+\S/i.test(raw)) && normal.get(c).has(v.get(c))) real = true;
+    }
+    if (!real) {
+      g.flag.set(r, 0);
+      for (const c of g.fcols) v.set(c, P.text(r, c));
+    }
+  }
+  // Header labels: the header row may be hidden (technical names); show the nearest visible row above instead.
+  g.labels = new Map();
+  for (const c of g.fcols) {
+    let label = '';
+    for (let r = g.hdr; r >= Math.max(0, g.hdr - 3) && !label; r--) label = P.text(r, c);
+    g.labels.set(c, label || colName(c));
+  }
+  g.gapCols = new Set();
+  for (let c = g.c0; c <= g.c1; c++) {
+    let txt = '';
+    for (let r = Math.max(0, g.r0 - 3); r <= g.hdr; r++) txt += ' ' + P.text(r, c);
+    if (GAP_RE.test(txt)) g.gapCols.add(c);
+  }
+  g.catCol = null;
+  for (const c of g.fcols) {
+    for (let r = g.hdr; r >= Math.max(0, g.hdr - 2); r--) if (CAT_RE.test(P.text(r, c))) { g.catCol = c; break; }
+    if (g.catCol != null) break;
+  }
+}
+
+// ---------- state ----------
+const S = {
+  book: null,            // { file, exported, sheets: [model] }
+  active: 0,
+  search: '',
+  showWork: store.get('work', false),
+  showHidden: store.get('hidden', false),
+  refs: store.get('refs', true)
+};
+els.tgWork.checked = S.showWork; els.tgHidden.checked = S.showHidden; els.tgRefs.checked = S.refs;
+
+// ---------- view computation ----------
+function viewSpec(model) {
+  const P = prepare(model);
+  if (!P.bounds) return { P, cols: [], rows: [], active: [] };
+  let lo = P.bounds.c0, hi = P.bounds.c1;
+  if (model.main && !S.showWork) { lo = Math.max(lo, model.main.c0); hi = Math.min(hi, model.main.c1); }
+  const cols = [];
+  let open = null;
+  for (let c = lo; c <= hi; c++) {
+    if (!S.showHidden && P.hiddenCols.has(c)) continue;
+    if (!P.colCount.get(c)) { if (open) open.c1 = c; else if (cols.length) { open = { sp: true, c0: c, c1: c }; cols.push(open); } continue; }
+    open = null; cols.push({ c });
+  }
+  while (cols.length && cols[cols.length - 1].sp) cols.pop();
+  const active = model.regions.filter(g => g.c1 >= lo && g.c0 <= hi && g.fcols.some(c => c >= lo && c <= hi));
+  return { P, cols, lo, hi, active };
+}
+// The row that carries a region's filter buttons. Pivot header rows are often hidden, with a static
+// caption row (Main_Cat, FGROUP_DESC, ...) a few rows above; use the nearest visible text-only row.
+function findDisplayHeader(g, P, active) {
+  if (S.showHidden || !P.hiddenRows.has(g.hdr)) return g.hdr;
+  for (let r = g.hdr - 1; r >= Math.max(0, g.hdr - 15); r--) {
+    if (P.hiddenRows.has(r)) continue;
+    if (active.some(o => o !== g && r > o.hdr && r <= o.r1)) break;
+    const list = (P.rowCells.get(r) || []).filter(x => x[1] >= g.c0 && x[1] <= g.c1);
+    if (!list.length) continue;
+    if (list.some(x => x[3] !== null)) break;
+    if (list.some(x => g.fcols.includes(x[1]))) return r;
+    break;
+  }
+  return g.hdr;
+}
+function regionOf(active, r) { for (const g of active) if (r > g.hdr && r <= g.r1) return g; return null; }
+function passes(g, r, q, P, lo, hi) {
+  const flag = g.flag.get(r);
+  if (flag === 2) return true;
+  const v = g.vals.get(r);
+  for (const [c, set] of g.filters) { const t = v.get(c); if (t === null || t === undefined) continue; if (!set.has(t)) return false; }
+  if (q) {
+    const list = P.rowCells.get(r) || [];
+    let hit = false;
+    for (const cell of list) if (cell[1] >= lo && cell[1] <= hi && cell[2].toLowerCase().includes(q)) { hit = true; break; }
+    if (!hit) return false;
+  }
+  return true;
+}
+function computeRows(model, spec, forceRows) {
+  const { P, cols, lo, hi, active } = spec;
+  const realCols = cols.filter(x => !x.sp).map(x => x.c);
+  const colSet = new Set(realCols);
+  const q = S.search.trim().toLowerCase();
+  const rows = []; let lastEmpty = true; let body = 0, bodyShown = 0;
+  for (let r = P.bounds.r0; r <= P.bounds.r1; r++) {
+    const g = regionOf(active, r);
+    if (g) body++;
+    const hiddenXml = P.hiddenRows.has(r);
+    if (hiddenXml && !S.showHidden && !(g && g.owns) && !forceRows.has(r)) continue;
+    if (g && !passes(g, r, q, P, lo, hi)) continue;
+    const list = P.rowCells.get(r) || [];
+    const has = list.some(cell => colSet.has(cell[1]));
+    if (!has) { if (!lastEmpty) { rows.push({ gap: true, r }); lastEmpty = true; } continue; }
+    if (g) bodyShown++;
+    rows.push({ r, g }); lastEmpty = false;
+  }
+  while (rows.length && rows[rows.length - 1].gap) rows.pop();
+  return { rows, body, bodyShown };
+}
+
+// ---------- rendering ----------
+const ICON_FILTER = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 2h8L6 5.6V9L4 8V5.6Z" fill="currentColor"/></svg>';
+
+function renderSheet() {
+  const model = S.book.sheets[S.active];
+  const spec = viewSpec(model);
+  const { P, cols, lo, hi, active } = spec;
+  els.title.textContent = normName(model.name);
+  els.tgWorkWrap.hidden = !model.main || !P.bounds || (P.bounds.c1 <= model.main.c1 && P.bounds.c0 >= model.main.c0);
+  renderChips(model, active);
+  if (!P.bounds) { els.grid.innerHTML = '<p style="padding:16px;color:var(--muted)">This sheet is empty.</p>'; els.stat.textContent = ''; return; }
+
+  const pane = model.pane;
+  const frozenCol = c => pane && pane.x > 0 && c < pane.x;
+  const frozenRow = r => pane && pane.y > 0 && r < pane.y;
+
+  // display-column index for each real column, and merge lookup
+  const dIndex = new Map(); cols.forEach((x, i) => { if (!x.sp) dIndex.set(x.c, i); else for (let c = x.c0; c <= x.c1; c++) dIndex.set(c, i); });
+  // Merged cells: every row of a merge gets one cell spanning the merge's display columns, so rows stay
+  // aligned even when the merge's top row is hidden or filtered out. The text shows on its first visible row.
+  const mergeAt = new Map();
+  P.merges.forEach(([mr0, mc0, mr1, mc1], id) => {
+    if (mc1 < lo || mc0 > hi) return;
+    let first = -1, last = -1;
+    for (let c = mc0; c <= mc1; c++) if (dIndex.has(c)) { const d = dIndex.get(c); if (first < 0) first = d; last = d; }
+    if (first < 0) return;
+    for (let r = mr0; r <= mr1; r++) mergeAt.set(r * 4096 + first, { span: last - first + 1, key: mr0 * 16384 + mc0, id });
+  });
+  const mergeShown = new Set();
+  const lastFrozenD = (() => { let d = -1; cols.forEach((x, i) => { if (!x.sp && frozenCol(x.c)) d = i; }); return d; })();
+
+  // header-ish rows: a region's display header row plus caption rows above it
+  const displayHdr = new Map(); // r -> [regions]
+  const forceRows = new Set();
+  for (const g of active) {
+    g._dh = findDisplayHeader(g, P, active);
+    if (g._dh === g.hdr && P.hiddenRows.has(g.hdr) && !S.showHidden) forceRows.add(g.hdr);
+    if (!displayHdr.has(g._dh)) displayHdr.set(g._dh, []);
+    displayHdr.get(g._dh).push(g);
+  }
+  const { rows, body, bodyShown } = computeRows(model, spec, forceRows);
+  const labelGapRow = r => { const list = P.rowCells.get(r) || []; const first = list.find(x => x[1] >= lo && x[1] <= hi && x[3] === null); return !!(first && /^(gap|diff|difference|variance|growth|grth)\b/i.test(first[2])); };
+
+  let errors = 0;
+  const out = [];
+  out.push('<table class="grid' + (S.refs ? '' : ' norefs') + '" id="gridTable"><thead><tr><th class="rn" scope="col"></th>');
+  cols.forEach((x, i) => out.push(x.sp ? '<th class="sp"></th>' : '<th scope="col" data-d="' + i + '">' + colName(x.c) + '</th>'));
+  out.push('</tr></thead><tbody>');
+  let lastFrozenRowIdx = -1;
+  rows.forEach((row, i) => { if (!row.gap && frozenRow(row.r)) lastFrozenRowIdx = i; });
+  rows.forEach((row, i) => {
+    if (row.gap) { out.push('<tr class="gap"><th class="rn"></th><td colspan="' + cols.length + '"></td></tr>'); return; }
+    const r = row.r; const g = row.g;
+    const cls = [];
+    const hdrRegs = displayHdr.get(r);
+    if (hdrRegs) cls.push('rh', 'rhs');
+    else if (g) { const f = g.flag.get(r); if (f === 2) cls.push('grand'); else if (f === 1) cls.push('sub'); }
+    else if (active.some(a => r < a._dh && r >= a.r0 - 3) && !(P.rowCells.get(r) || []).some(x => x[3] !== null)) cls.push('cap');
+    if (frozenRow(r)) { cls.push('fzr'); if (i === lastFrozenRowIdx) cls.push('lastfzr'); }
+    const gapRow = !hdrRegs && labelGapRow(r);
+    out.push('<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-r="' + r + '"><th class="rn">' + (r + 1) + '</th>');
+    for (let d = 0; d < cols.length; d++) {
+      const x = cols[d];
+      const m = mergeAt.get(r * 4096 + d);
+      if (x.sp && !m) { out.push('<td class="sp"></td>'); continue; }
+      const c = x.sp ? x.c0 : x.c;
+      let cell = P.map.get(r * 16384 + c);
+      if (m) { cell = mergeShown.has(m.id) ? null : P.map.get(m.key); mergeShown.add(m.id); }
+      const tdc = [];
+      if (frozenCol(c)) { tdc.push('fzc', 'fz' + d); if (d === lastFrozenD) tdc.push('lastfz'); }
+      let inner = '';
+      let title = '';
+      if (cell) {
+        const [, , text, num, isErr] = cell;
+        if (isErr) { tdc.push('err'); inner = '<span>' + esc(text) + '</span>'; errors++; }
+        else {
+          inner = esc(text);
+          if (num !== null) {
+            tdc.push('num');
+            const colored = (g && g.gapCols.has(c) && g.flag.get(r) !== undefined) || gapRow;
+            if (colored && Math.abs(num) > 1e-9) tdc.push(num > 0 ? 'pos' : 'neg');
+          } else if (text.length > 30) title = text;
+        }
+      }
+      if (hdrRegs && !(m && m.span > 1)) {
+        const reg = hdrRegs.find(h => h.fcols.includes(c));
+        if (reg) {
+          const on = reg.filters.has(c);
+          const label = reg.labels.get(c);
+          inner = '<div class="hcell"><span>' + inner + '</span><button type="button" class="fbtn' + (on ? ' on' : '') + '" data-g="' + reg.idx + '" data-c="' + c + '" aria-label="Filter ' + esc(label) + (on ? ' (filtered)' : '') + '" title="Filter ' + esc(label) + '">' + ICON_FILTER + '</button></div>';
+        }
+      }
+      let span = '';
+      if (m && m.span > 1) { span = ' colspan="' + m.span + '"'; d += m.span - 1; }
+      out.push('<td' + (tdc.length ? ' class="' + tdc.join(' ') + '"' : '') + span + (title ? ' title="' + esc(title) + '"' : '') + '>' + inner + '</td>');
+    }
+    out.push('</tr>');
+  });
+  out.push('</tbody></table>');
+  const keepScroll = els.grid.dataset.sheet === String(S.active) ? { x: els.grid.scrollLeft, y: els.grid.scrollTop } : { x: 0, y: 0 };
+  els.grid.innerHTML = out.join('');
+  els.grid.dataset.sheet = String(S.active);
+  layoutSticky(cols);
+  els.grid.scrollLeft = keepScroll.x; els.grid.scrollTop = keepScroll.y;
+
+  // status line
+  const nFilters = active.reduce((n, g) => n + g.filters.size, 0);
+  const parts = [];
+  if (body) parts.push('<strong>' + fmtInt(bodyShown) + '</strong> of ' + fmtInt(body) + ' rows');
+  if (errors) parts.push('<strong>' + fmtInt(errors) + '</strong> error cell' + (errors === 1 ? '' : 's') + ' shown');
+  els.stat.innerHTML = parts.join(' &middot; ');
+  if (nFilters || S.search.trim()) {
+    els.filtersNote.innerHTML = '<span class="filters-note">' + (nFilters ? nFilters + ' filter' + (nFilters === 1 ? '' : 's') + ' on' : '') +
+      (nFilters && S.search.trim() ? ' &middot; ' : '') + (S.search.trim() ? 'search &ldquo;' + esc(S.search.trim()) + '&rdquo;' : '') +
+      '<button type="button" class="linkbtn" id="clearAll">Clear</button></span>';
+  } else els.filtersNote.innerHTML = '';
+}
+
+function layoutSticky(cols) {
+  const table = $('gridTable'); if (!table) return;
+  const css = [];
+  const head = table.tHead.rows[0];
+  const headH = head.offsetHeight;
+  // frozen columns: left offsets from the reference row
+  for (const th of head.cells) {
+    const d = th.dataset.d; if (d == null) continue;
+    css.push('.grid td.fz' + d + '{left:' + th.offsetLeft + 'px}');
+  }
+  // frozen rows: stack under the column-letter row
+  let bottom = headH;
+  for (const tr of table.tBodies[0].querySelectorAll('tr.fzr')) {
+    tr.style.setProperty('--top', tr.offsetTop + 'px');
+    bottom = Math.max(bottom, tr.offsetTop + tr.offsetHeight);
+  }
+  css.push('.grid tr.fzr > *{top:var(--top)}');
+  css.push('.grid tr.rhs:not(.fzr) > *{top:' + bottom + 'px}');
+  els.dyn.textContent = css.join('\n');
+}
+
+function renderChips(model, active) {
+  const withCat = active.filter(g => g.catCol != null);
+  if (!withCat.length) { els.chips.innerHTML = ''; return; }
+  const vals = new Map();
+  for (const g of withCat) for (const [r, v] of g.vals) { if (g.flag.get(r)) continue; const t = v.get(g.catCol); if (t && !/^\(blank\)$/i.test(t) && !/^[-\d.,%\s]+$/.test(t)) vals.set(t, (vals.get(t) || 0) + 1); }
+  if (vals.size < 2 || vals.size > 14) { els.chips.innerHTML = ''; return; }
+  const cur = withCat[0].filters.get(withCat[0].catCol);
+  const list = [...vals.keys()].sort((a, b) => a.localeCompare(b));
+  els.chips.innerHTML = '<span class="lbl">Category</span><button type="button" class="chip" data-chip="" aria-pressed="' + (!cur) + '">All</button>' +
+    list.map(v => '<button type="button" class="chip" data-chip="' + esc(v) + '" aria-pressed="' + !!(cur && cur.has(v)) + '">' + esc(v) + '</button>').join('');
+}
+function setCategory(model, values) {
+  const spec = viewSpec(model);
+  for (const g of spec.active) if (g.catCol != null) { if (values && values.size) g.filters.set(g.catCol, new Set(values)); else g.filters.delete(g.catCol); }
+}
+
+function renderTabs() {
+  els.tabs.innerHTML = S.book.sheets.map((m, i) => {
+    const P = prepare(m);
+    let errs = 0;
+    for (const cell of m.cells) if (cell[4] && (!m.main || (cell[1] >= m.main.c0 && cell[1] <= m.main.c1)) && !P.hiddenCols.has(cell[1]) && !P.hiddenRows.has(cell[0])) errs++;
+    return '<button type="button" class="tab" role="tab" id="tab' + i + '" aria-selected="' + (i === S.active) + '" tabindex="' + (i === S.active ? 0 : -1) + '" data-i="' + i + '">' +
+      esc(normName(m.name).replace(/\s*,\s*/g, ', ')) + (errs ? '<span class="dot" title="' + errs + ' error cells (#DIV/0!, #N/A) in the report area">' + errs + '</span>' : '') + '</button>';
+  }).join('');
+  els.tabs.hidden = false;
+}
+function selectSheet(i, focus) {
+  S.active = i; S.search = ''; els.search.value = '';
+  for (const t of els.tabs.children) { const on = +t.dataset.i === i; t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); if (on) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  store.set('tab', normName(S.book.sheets[i].name));
+  closePop();
+  renderSheet();
+}
+
+// ---------- filter popover ----------
+let pop = null;
+function closePop() { if (pop) { pop.remove(); pop = null; } }
+function openFilter(btn) {
+  closePop();
+  const model = S.book.sheets[S.active];
+  const g = model.regions[+btn.dataset.g]; const c = +btn.dataset.c;
+  const counts = new Map();
+  for (const [r, v] of g.vals) { if (g.flag.get(r) === 2) continue; const t = v.get(c); if (t === null || t === undefined) continue; counts.set(t, (counts.get(t) || 0) + 1); }
+  const values = [...counts.keys()].sort((a, b) => {
+    const na = parseFloat(a.replace(/[,%\s]/g, '')), nb = parseFloat(b.replace(/[,%\s]/g, ''));
+    if (a === '') return 1; if (b === '') return -1;
+    if (!isNaN(na) && !isNaN(nb) && /^[-\d.,%\s()]+$/.test(a) && /^[-\d.,%\s()]+$/.test(b)) return na - nb;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+  const cur = g.filters.get(c);
+  const checked = new Set(cur ? values.filter(v => cur.has(v)) : values);
+  pop = document.createElement('div');
+  pop.className = 'pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Filter ' + g.labels.get(c));
+  pop.innerHTML = '<header><span>' + esc(g.labels.get(c)) + '</span><small>' + values.length + ' values</small></header>' +
+    '<div class="ps"><input type="search" placeholder="Find a value" aria-label="Find a value" id="popFind"></div><ul id="popList"></ul>' +
+    '<footer><button type="button" class="btn" id="popClear">Clear filter</button><button type="button" class="btn primary" id="popApply">Apply</button></footer>';
+  document.body.appendChild(pop);
+  const list = pop.querySelector('#popList'); const find = pop.querySelector('#popFind');
+  const draw = () => {
+    const q = find.value.trim().toLowerCase();
+    const shown = values.filter(v => !q || (v || '(Blanks)').toLowerCase().includes(q)).slice(0, 1500);
+    const allOn = shown.length && shown.every(v => checked.has(v));
+    list.innerHTML = '<li class="all"><label><input type="checkbox" data-all="1"' + (allOn ? ' checked' : '') + '><span>' + (q ? 'Select all matches' : 'Select all') + '</span></label></li>' +
+      shown.map((v, i) => '<li><label><input type="checkbox" data-v="' + i + '"' + (checked.has(v) ? ' checked' : '') + '><span>' + (v === '' ? '<em>(Blanks)</em>' : esc(v)) + '</span><em>' + counts.get(v) + '</em></label></li>').join('');
+    list._shown = shown;
+  };
+  draw();
+  list.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.all) { for (const v of list._shown) t.checked ? checked.add(v) : checked.delete(v); draw(); }
+    else { const v = list._shown[+t.dataset.v]; t.checked ? checked.add(v) : checked.delete(v); }
+  });
+  find.addEventListener('input', draw);
+  const apply = set => {
+    if (!set || set.size === values.length) g.filters.delete(c); else g.filters.set(c, set);
+    if (g.catCol === c) setCategory(model, g.filters.get(c) || null);
+    closePop(); renderSheet();
+  };
+  pop.querySelector('#popApply').addEventListener('click', () => apply(new Set(checked)));
+  pop.querySelector('#popClear').addEventListener('click', () => apply(null));
+  pop.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === find) apply(new Set(checked)); });
+  const rect = btn.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = Math.min(rect.left, window.innerWidth - w - 12); left = Math.max(12, left);
+  let top = rect.bottom + 6; if (top + h > window.innerHeight - 12) top = Math.max(12, rect.top - h - 6);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  find.focus();
+}
+
+// ---------- loading ----------
+async function loadFile(file) {
+  if (!file) return;
+  if (typeof XLSX === 'undefined' || typeof JSZip === 'undefined') {
+    showLanding(); setStatus('The spreadsheet reader did not load. Check the internet connection, then reload this page.', true); return;
+  }
+  showLanding();
+  try {
+    setStatus('Reading ' + file.name + ' …'); await nextFrame();
+    const buf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    setStatus('Finding the black-tab sheets …'); await nextFrame();
+    const { picked, fallback } = await readPackage(zip);
+    setStatus('Reading ' + picked.length + ' sheets …'); await nextFrame();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', sheets: picked.map(s => s.name), cellHTML: false, cellFormula: false, cellStyles: false });
+    const sheets = picked.filter(s => wb.Sheets[s.name]).map(s => buildModel(s, wb.Sheets[s.name]));
+    if (!sheets.length) throw new Error('No sheets could be read from this file.');
+    openBook({ file: file.name, modified: file.lastModified || null, exported: null, fallback, sheets });
+    setStatus('');
+  } catch (err) {
+    console.error(err);
+    setStatus(/password|encrypt/i.test(String(err && err.message)) ? 'This workbook is password protected. Save an unprotected copy and open that.' :
+      'Could not read this file: ' + (err && err.message ? err.message : err), true);
+  }
+}
+function showLanding() { els.landing.hidden = false; els.sheetView.hidden = true; }
+function openBook(book) {
+  S.book = book;
+  const wanted = store.get('tab', null);
+  const idx = book.sheets.findIndex(m => normName(m.name) === wanted);
+  S.active = idx >= 0 ? idx : 0;
+  const when = book.exported ? 'saved view from ' + new Date(book.exported).toLocaleString() :
+    (book.modified ? 'file saved ' + new Date(book.modified).toLocaleString() : '');
+  els.fileInfo.textContent = book.file + (when ? ' · ' + when : '') + (book.fallback ? ' · tab colours not found, showing known sheets' : '');
+  els.landing.hidden = true; els.sheetView.hidden = false;
+  els.saveBtn.hidden = framed;
+  document.title = 'Pre-MSR Review · ' + book.file.replace(/\.(xlsm|xlsx|xlsb|xls)$/i, '');
+  renderTabs();
+  selectSheet(S.active);
+}
+
+// ---------- save as a standalone report ----------
+function exportBook() {
+  const sheets = S.book.sheets.map(m => {
+    const lo = m.main ? m.main.c0 : 0, hi = m.main ? m.main.c1 : 16383;
+    const inCols = c => c >= lo && c <= hi;
+    return {
+      name: m.name, cells: m.cells.filter(x => inCols(x[1])), hiddenRows: m.hiddenRows, hiddenCols: m.hiddenCols.filter(inCols), pane: m.pane, main: null,
+      merges: m.merges.filter(x => x[3] >= lo && x[1] <= hi),
+      regions: m.regions.filter(g => g.fcols.some(inCols)).map(g => ({
+        kind: g.kind, name: g.name, r0: g.r0, c0: Math.max(g.c0, lo), r1: g.r1, c1: Math.min(g.c1, hi), hdr: g.hdr, fill: g.fill, owns: g.owns,
+        fcols: g.fcols.filter(inCols), init: Object.fromEntries([...(g.filters || new Map())].filter(([c]) => inCols(c)).map(([c, s]) => [c, [...s]]))
+      }))
+    };
+  });
+  const data = { v: 1, file: S.book.file, modified: S.book.modified, exported: Date.now(), sheets };
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const slot = /<script id="pmr-data" type="application\/json">[\s\S]*?<\/script>/;
+  if (!slot.test(PAGE_SOURCE)) { toast('Could not build the report file.'); return; }
+  const html = PAGE_SOURCE.replace(slot, () => '<script id="pmr-data" type="application/json">' + json + '</' + 'script>');
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Pre-MSR Review - ' + S.book.file.replace(/\.(xlsm|xlsx|xlsb|xls)$/i, '').trim() + '.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Report saved. It opens in any browser, with tabs and filters.');
+}
+
+// ---------- copy view ----------
+function copyView() {
+  const table = $('gridTable'); if (!table) return;
+  const lines = [];
+  for (const tr of table.tBodies[0].rows) {
+    if (tr.classList.contains('gap')) continue;
+    const cells = [];
+    for (const td of tr.cells) {
+      if (td.tagName === 'TH' || td.classList.contains('sp')) continue;
+      const span = td.colSpan || 1;
+      cells.push(td.textContent.replace(/\s+/g, ' ').trim());
+      for (let k = 1; k < span; k++) cells.push('');
+    }
+    lines.push(cells.join('\t'));
+  }
+  const text = lines.join('\n');
+  const fallback = () => {
+    const box = document.createElement('div'); box.className = 'copybox';
+    box.innerHTML = '<b>Copy these rows (Ctrl+C), then paste into Excel</b><textarea id="copyText" aria-label="Rows to copy"></textarea><div><button type="button" class="btn" id="copyClose">Close</button></div>';
+    document.body.appendChild(box);
+    const ta = box.querySelector('textarea'); ta.value = text; ta.focus(); ta.select();
+    box.querySelector('#copyClose').addEventListener('click', () => box.remove());
+  };
+  try {
+    navigator.clipboard.writeText(text).then(() => toast('Copied ' + lines.length + ' rows. Paste them into Excel.'), fallback);
+  } catch (e) { fallback(); }
+}
+
+// ---------- events ----------
+els.fileInput.addEventListener('change', () => { const f = els.fileInput.files[0]; els.fileInput.value = ''; loadFile(f); });
+['dragenter', 'dragover'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); els.drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); if (t === 'drop' || e.target === document.documentElement) els.drop.classList.remove('over'); }));
+window.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+els.tabs.addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) selectSheet(+t.dataset.i); });
+els.tabs.addEventListener('keydown', e => {
+  const n = S.book ? S.book.sheets.length : 0; if (!n) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); selectSheet((S.active + 1) % n, true); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); selectSheet((S.active - 1 + n) % n, true); }
+  if (e.key === 'Home') { e.preventDefault(); selectSheet(0, true); }
+  if (e.key === 'End') { e.preventDefault(); selectSheet(n - 1, true); }
+});
+els.grid.addEventListener('click', e => { const b = e.target.closest('.fbtn'); if (b) { e.stopPropagation(); openFilter(b); } });
+els.grid.addEventListener('scroll', () => { if (pop) closePop(); }, { passive: true });
+els.chips.addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const model = S.book.sheets[S.active];
+  const g = viewSpec(model).active.find(x => x.catCol != null);
+  const v = b.dataset.chip;
+  let set = null;
+  if (v) { set = new Set(g && g.filters.get(g.catCol) || []); set.has(v) ? set.delete(v) : set.add(v); if (!set.size) set = null; }
+  setCategory(model, set); renderSheet();
+});
+els.filtersNote.addEventListener('click', e => {
+  if (e.target.id !== 'clearAll') return;
+  const model = S.book.sheets[S.active];
+  for (const g of model.regions) g.filters && g.filters.clear();
+  S.search = ''; els.search.value = ''; renderSheet();
+});
+let searchTimer;
+els.search.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.search = els.search.value; renderSheet(); }, 160); });
+els.tgWork.addEventListener('change', () => { S.showWork = els.tgWork.checked; store.set('work', S.showWork); renderSheet(); });
+els.tgHidden.addEventListener('change', () => { S.showHidden = els.tgHidden.checked; store.set('hidden', S.showHidden); renderSheet(); });
+els.tgRefs.addEventListener('change', () => { S.refs = els.tgRefs.checked; store.set('refs', S.refs); renderSheet(); });
+els.copyBtn.addEventListener('click', copyView);
+els.saveBtn.addEventListener('click', exportBook);
+document.addEventListener('mousedown', e => { if (pop && !pop.contains(e.target) && !e.target.closest('.fbtn')) closePop(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pop) { closePop(); return; }
+  if (e.key === '/' && S.book && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); els.search.focus(); }
+});
+window.addEventListener('resize', () => { closePop(); if (S.book && $('gridTable')) layoutSticky(); });
+
+// ---------- boot ----------
+const embedded = $('pmr-data').textContent.trim();
+if (embedded) {
+  try {
+    const data = JSON.parse(embedded);
+    openBook({ file: data.file, modified: data.modified, exported: data.exported, fallback: false, sheets: data.sheets });
+  } catch (e) { console.error(e); setStatus('The saved report data could not be read.', true); }
+}
+})();
+</script>
