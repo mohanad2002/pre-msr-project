@@ -533,7 +533,7 @@ Private Sub Step_IMS()
     Dim w As Worksheet, t As Long, r As Long, lastE As Long, i As Long, m As Long, c As Long
     Dim wasProt As Boolean
     Set w = Sh("IMS Stock")
-    lastE = w.Cells(w.Rows.Count, 5).End(xlUp).Row
+    lastE = LastFilled(w, 5, 8, LastUsedRow(w))                       ' not End(xlUp): it skips rows hidden by the filter
     For i = 8 To lastE
         If IsKey(w.Cells(i, 46).Value, sTpl) Then                      ' column AT holds VALUE(code)
             If IsText(w.Cells(i, 5).Value, "IMS Actual ( Sales)") Then
@@ -552,10 +552,12 @@ Private Sub Step_IMS()
         If w.AutoFilter.Range.Row + w.AutoFilter.Range.Rows.Count - 1 < r Then _
             Warn w.Name, "The new rows are below the filter range " & w.AutoFilter.Range.Address(False, False) & "; extend it if you filter this sheet."
     End If
+    If Not RowsEmpty(w, r, 8, 1, 59) Then Note w.Name, "rows " & r & "-" & (r + 7), "Not empty: 8 new rows are inserted here instead, existing rows move down"
     If dryRun Then Exit Sub
 
     wasProt = w.ProtectContents
     If wasProt Then w.Unprotect
+    If Not RowsEmpty(w, r, 8, 1, 59) Then w.Rows(r & ":" & (r + 7)).Insert Shift:=xlDown
     For i = 0 To 7
         CopyCells w.Range(w.Cells(t + i, 1), w.Cells(t + i, 59)), w.Range(w.Cells(r + i, 1), w.Cells(r + i, 59))
     Next i
@@ -750,7 +752,7 @@ Private Sub Step_CompBlock()
     Dim tplRows() As Long
     Set w = Sh("2027_Comparision")
     Set q = Sh("2027_by Quarter")
-    lastC = w.Cells(w.Rows.Count, 29).End(xlUp).Row                    ' AC
+    lastC = LastFilled(w, 29, 16, LastUsedRow(w))                     ' AC; not End(xlUp), the sheet is filtered
     ReDim tplRows(1 To 1)
     For i = 16 To lastC
         If IsText(w.Cells(i, 29).Value, sTplDesc) Then
@@ -765,7 +767,15 @@ Private Sub Step_CompBlock()
         Warn w.Name, "The template SKU is not in the data block W:AH; add its month rows by hand."
         Exit Sub
     End If
-    qLast = q.Cells(q.Rows.Count, 36).End(xlUp).Row                    ' AJ
+    qLast = LastFilled(q, 36, 10, LastUsedRow(q))                     ' AJ
+    If Not RowsEmpty(w, lastC + 1, n, 22, 34) Then
+        Problem w.Name, "Rows " & (lastC + 1) & "-" & (lastC + n) & " (V:AH) are not empty; nothing was written there."
+        Exit Sub
+    End If
+    If Not RowsEmpty(q, qLast + 1, n, 30, 40) Then
+        Problem q.Name, "Rows " & (qLast + 1) & "-" & (qLast + n) & " (AD:AN) are not empty; nothing was written there."
+        Exit Sub
+    End If
     Note w.Name, "rows " & (lastC + 1) & "-" & (lastC + n), n & " month rows in the data block W:AH (pivot source)"
     Note q.Name, "rows " & (qLast + 1) & "-" & (qLast + n), "Helper rows linked to the new 2027_Comparision rows"
     If dryRun Then Exit Sub
@@ -1239,6 +1249,16 @@ Private Sub SetCol(lo As ListObject, nr As ListRow, ByVal header As String, ByVa
     Set c = nr.Range.Cells(1, idx)
     If Not c.HasFormula Then c.Value = v                ' columns that are formulas work the value out themselves
 End Sub
+
+' Last row of the used range. Unlike End(xlUp), it does not depend on filters or hidden rows.
+Private Function LastUsedRow(w As Worksheet) As Long
+    LastUsedRow = w.UsedRange.Row + w.UsedRange.Rows.Count - 1
+End Function
+
+' True when rows r..r+n-1, columns c1..c2, hold nothing (no values and no formulas)
+Private Function RowsEmpty(w As Worksheet, ByVal r As Long, ByVal n As Long, ByVal c1 As Long, ByVal c2 As Long) As Boolean
+    RowsEmpty = (Application.WorksheetFunction.CountA(w.Range(w.Cells(r, c1), w.Cells(r + n - 1, c2))) = 0)
+End Function
 
 Private Function RowBelowEmpty(lo As ListObject) As Boolean
     RowBelowEmpty = (Application.WorksheetFunction.CountA(lo.Range.Rows(lo.Range.Rows.Count).Offset(1, 0)) = 0)
