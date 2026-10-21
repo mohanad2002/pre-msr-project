@@ -184,7 +184,7 @@ End Sub
 '==============================================================================
 
 Private Sub RunNewSKU(ByVal isDry As Boolean)
-    Dim calcMode As Long, stepName As String
+    Dim calcMode As Long, stepName As String, errText As String
     If Sh(FORM_NAME) Is Nothing Then
         MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "New SKU"
         Exit Sub
@@ -269,11 +269,12 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     Exit Sub
 
 Failed:
-    Note "ERROR", stepName, Err.Description
+    errText = ErrText()                         ' read first: Note's helpers reset the Err object
+    Note "ERROR", stepName, errText
     Application.Calculation = calcMode
     Application.EnableEvents = True
     Application.ScreenUpdating = True
-    MsgBox "Stopped at step '" & stepName & "': " & Err.Description & vbLf & vbLf & _
+    MsgBox "Stopped at step '" & stepName & "': " & errText & vbLf & vbLf & _
            "Steps before it were done. The backup copy saved at the start has the workbook as it was.", _
            vbCritical, "New SKU"
 End Sub
@@ -852,7 +853,7 @@ End Sub
 
 Private Sub Step_EngineTable(ByVal sheetName As String, ByVal tableName As String)
     Dim lo As ListObject, keyIdx As Long, a As Variant, i As Long, n As Long, k As Long
-    Dim tplRows As New Collection, nr As ListRow, src As Range
+    Dim tplRows As New Collection, nr As ListRow, src As Range, saved As Collection
     Set lo = Sh(sheetName).ListObjects(tableName)
     keyIdx = lo.ListColumns("product code").Index
     a = lo.ListColumns(keyIdx).DataBodyRange.Value
@@ -870,6 +871,7 @@ Private Sub Step_EngineTable(ByVal sheetName As String, ByVal tableName As Strin
     End If
     Note sheetName, tableName & " +" & n & " rows", "Customer x month rows (copied from the template SKU's " & n & " rows)"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)
     For k = 1 To n
         Set src = lo.ListRows(tplRows(k)).Range
         Set nr = lo.ListRows.Add(AlwaysInsert:=False)
@@ -884,6 +886,7 @@ Private Sub Step_EngineTable(ByVal sheetName As String, ByVal tableName As Strin
         SetCol lo, nr, "product code", sCode
         SetCol lo, nr, "Product Desc", sDesc
     Next k
+    RestoreTableFilters lo, saved
 End Sub
 
 ' 2027_Comparision W:AH is the source of the pivots on 2027_Comparision, 2027 VS ICP,
@@ -942,7 +945,7 @@ End Sub
 ' Report tables with category sections and subtotal rows: insert inside the section,
 ' above its last SKU row, so the section's SUM range grows to include the new row.
 Private Sub Step_ReportTable(ByVal sheetName As String, ByVal tableName As String)
-    Dim lo As ListObject, a As Variant, i As Long, idx As Long, nr As ListRow
+    Dim lo As ListObject, a As Variant, i As Long, idx As Long, nr As ListRow, saved As Collection
     Set lo = Sh(sheetName).ListObjects(tableName)
     a = lo.ListColumns(1).DataBodyRange.Value
     For i = 1 To UBound(a, 1)
@@ -958,16 +961,18 @@ Private Sub Step_ReportTable(ByVal sheetName As String, ByVal tableName As Strin
     End If
     Note sheetName, tableName & " row " & (lo.HeaderRowRange.Row + idx), "Report row in the " & sCat & " section"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)
     Set nr = lo.ListRows.Add(Position:=idx, AlwaysInsert:=False)
     CopyCells lo.ListRows(idx + 1).Range, nr.Range
     nr.Range.Cells(1, 1).Value = sCat
     nr.Range.Cells(1, 2).Value = sUpdFg
     nr.Range.Cells(1, 3).Value = sDesc
+    RestoreTableFilters lo, saved
 End Sub
 
 ' Monthly Gap Table612 reads the pivot list in CD:CE row by row; one more SKU needs one more row.
 Private Sub Step_MonthlyGap()
-    Dim lo As ListObject, nr As ListRow
+    Dim lo As ListObject, nr As ListRow, saved As Collection
     Set lo = Sh("Monthly Gap").ListObjects("Table612")
     If Not RowBelowEmpty(lo) Then
         Problem "Monthly Gap", "The row under Table612 is not empty; add one table row by hand."
@@ -975,13 +980,15 @@ Private Sub Step_MonthlyGap()
     End If
     Note "Monthly Gap", "Table612 +1 row", "One more SKU row (reads the pivot list in CD:CE after refresh)"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)
     Set nr = lo.ListRows.Add(AlwaysInsert:=False)
     CopyCells lo.ListRows(lo.ListRows.Count - 1).Range, nr.Range
+    RestoreTableFilters lo, saved
 End Sub
 
 ' CYvsNY Table9 has two rows (2026, 2027) per SKU, read from the pivot in AK:AN.
 Private Sub Step_CYvsNY()
-    Dim lo As ListObject, need As Long, k As Long, nr As ListRow
+    Dim lo As ListObject, need As Long, k As Long, nr As ListRow, saved As Collection
     Set lo = Sh("CYvsNY").ListObjects("Table9")
     need = 2 * (mRow - 1)
     If lo.ListRows.Count >= need Then
@@ -994,10 +1001,12 @@ Private Sub Step_CYvsNY()
     End If
     Note "CYvsNY", "Table9 +2 rows", "Room for one more SKU (2026 and 2027 rows)"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)
     For k = 1 To 2
         Set nr = lo.ListRows.Add(AlwaysInsert:=False)
         CopyCells lo.ListRows(lo.ListRows.Count - 2).Range, nr.Range
     Next k
+    RestoreTableFilters lo, saved
 End Sub
 
 '==============================================================================
@@ -1050,7 +1059,7 @@ Private Sub BuildDeleteSection(f As Worksheet, ByVal r0 As Long)
 End Sub
 
 Private Sub RunDeleteSKU(ByVal isDry As Boolean)
-    Dim calcMode As Long, stepName As String, w As Worksheet, r As Long, nSales As Double
+    Dim calcMode As Long, stepName As String, w As Worksheet, r As Long, nSales As Double, errText As String
     If Sh(FORM_NAME) Is Nothing Then
         MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "Delete SKU"
         Exit Sub
@@ -1147,11 +1156,12 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     Exit Sub
 
 Failed:
-    Note "ERROR", stepName, Err.Description
+    errText = ErrText()                         ' read first: Note's helpers reset the Err object
+    Note "ERROR", stepName, errText
     Application.Calculation = calcMode
     Application.EnableEvents = True
     Application.ScreenUpdating = True
-    MsgBox "Stopped at step '" & stepName & "': " & Err.Description & vbLf & vbLf & _
+    MsgBox "Stopped at step '" & stepName & "': " & errText & vbLf & vbLf & _
            "Steps before it were done. Open the backup copy saved at the start to go back.", vbCritical, "Delete SKU"
 End Sub
 
@@ -1259,6 +1269,7 @@ End Sub
 ' Table rows: by product code (engine tables) or by description in column 3 (report tables).
 Private Sub Del_TableRows(ByVal sheetName As String, ByVal tableName As String, ByVal header As String)
     Dim lo As ListObject, a As Variant, i As Long, n As Long, hits() As Long, idx As Long, hit As Boolean
+    Dim saved As Collection
     Set lo = Sh(sheetName).ListObjects(tableName)
     If lo.DataBodyRange Is Nothing Then Exit Sub
     If header = "" Then idx = 3 Else idx = lo.ListColumns(header).Index
@@ -1278,9 +1289,11 @@ Private Sub Del_TableRows(ByVal sheetName As String, ByVal tableName As String, 
     End If
     Note sheetName, tableName & " -" & n & " rows", "Delete the SKU's table rows"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)           ' Excel will not delete rows of a filtered table
     For i = n To 1 Step -1
         lo.ListRows(hits(i)).Delete
     Next i
+    RestoreTableFilters lo, saved
 End Sub
 
 ' 2027_by Quarter AD:AN links row by row to the 2027_Comparision block; remove its rows first.
@@ -1344,12 +1357,14 @@ End Sub
 
 ' Table612 reads the pivot list by position; one SKU fewer needs one row fewer.
 Private Sub Del_MonthlyGap()
-    Dim lo As ListObject
+    Dim lo As ListObject, saved As Collection
     Set lo = Sh("Monthly Gap").ListObjects("Table612")
     If lo.ListRows.Count < 2 Then Exit Sub
     Note "Monthly Gap", "Table612 -1 row", "Remove the last SKU row (the pivot list is one SKU shorter after refresh)"
     If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)           ' the category buttons filter this table
     lo.ListRows(lo.ListRows.Count).Delete
+    RestoreTableFilters lo, saved
 End Sub
 
 ' SKU mapping-Pricing last. Only the SKU's own cells move up: W:Y (unified names) and S2:S6
@@ -1795,6 +1810,52 @@ End Function
 ' True when rows r..r+n-1, columns c1..c2, hold nothing (no values and no formulas)
 Private Function RowsEmpty(w As Worksheet, ByVal r As Long, ByVal n As Long, ByVal c1 As Long, ByVal c2 As Long) As Boolean
     RowsEmpty = (Application.WorksheetFunction.CountA(w.Range(w.Cells(r, c1), w.Cells(r + n - 1, c2))) = 0)
+End Function
+
+' Turns off a table's active filters and returns them, so they can be put back with RestoreTableFilters.
+' Excel refuses to delete (and sometimes to insert) rows while a table is filtered.
+Private Function ClearTableFilters(lo As ListObject) As Collection
+    Dim saved As New Collection, i As Long, fl As Object, op As Long, c1 As Variant, c2 As Variant
+    Set ClearTableFilters = saved
+    If lo.AutoFilter Is Nothing Then Exit Function
+    For i = 1 To lo.AutoFilter.Filters.Count
+        Set fl = lo.AutoFilter.Filters(i)
+        If fl.On Then
+            op = 0: c1 = Empty: c2 = Empty
+            On Error Resume Next
+            op = fl.Operator
+            c1 = fl.Criteria1
+            If op = xlAnd Or op = xlOr Then c2 = fl.Criteria2
+            On Error GoTo 0
+            saved.Add Array(i, op, c1, c2)
+        End If
+    Next i
+    If saved.Count > 0 Then lo.AutoFilter.ShowAllData
+End Function
+
+Private Sub RestoreTableFilters(lo As ListObject, saved As Collection)
+    Dim it As Variant, failed As Boolean
+    If saved Is Nothing Then Exit Sub
+    For Each it In saved
+        On Error Resume Next
+        Err.Clear
+        If it(1) = xlAnd Or it(1) = xlOr Then
+            lo.Range.AutoFilter Field:=it(0), Criteria1:=it(2), Operator:=it(1), Criteria2:=it(3)
+        ElseIf it(1) = 0 Then
+            lo.Range.AutoFilter Field:=it(0), Criteria1:=it(2)
+        Else
+            lo.Range.AutoFilter Field:=it(0), Criteria1:=it(2), Operator:=it(1)
+        End If
+        failed = (Err.Number <> 0)
+        On Error GoTo 0
+        If failed Then Warn lo.Parent.Name, "The filter on column " & it(0) & " of " & lo.Name & " could not be put back; set it again (for Monthly Gap, click its category button)."
+    Next it
+End Sub
+
+' Error text for the log; some Excel errors carry a number but no description.
+Private Function ErrText() As String
+    ErrText = Err.Description
+    If Len(ErrText) = 0 Then ErrText = "Excel error " & Err.Number
 End Function
 
 Private Function RowBelowEmpty(lo As ListObject) As Boolean
