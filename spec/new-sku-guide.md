@@ -29,6 +29,41 @@ The macro was written from the workbook's structure. It was not run in Excel her
 
 Choose a template SKU in the **same F-Group** as the new one, for example the pack it replaces. Its rows give the new SKU its price-change months, distribution months, DSCR months and report formulas. Its trade terms and customer split are used unless you type others.
 
+## Delete a SKU
+
+The reverse of Add SKU: it removes the SKU's rows from every sheet Add SKU writes to.
+
+1. If your New SKU sheet was built before this feature, run `Setup_DeleteSKU_Section` once (Alt+F8). It adds a **Delete a SKU** box under the checklist and keeps everything you typed. A new `Setup_NewSKU_Sheet` includes the box already.
+2. Type the code in **SKU code to delete**. The box shows its description and status, so you can check it is the right SKU.
+3. Click **Preview delete**. Column L lists every row it would remove, sheet by sheet. Nothing changes. It also warns if the SKU already has actual sales in Sales Vs Activity-RAW, because those actuals disappear from the reports with it.
+4. Click **Delete SKU**. A backup copy is saved first (`... - before deleting SKU 12345678 ....xlsm`). Then the rows are removed and the pivots are refreshed.
+5. Type the code in **New SKU code** (C5). Every "Found" in the checklist should now be 0.
+
+What it removes:
+- the master row;
+- the 2026 and 2027 Price Chnge rows;
+- BDA Allowance Assist and Distribution by Month (+Y+1);
+- FCST and FCST Y+1;
+- the 8-row IMS Stock block;
+- the four Fayrouz rows;
+- DSCR, DSCR -LS, DSCR Y+1 and Target Split (+Y+1), 2 rows each;
+- the Table1 and Table19 rows;
+- the 2027_Comparision month block and the 2027_by Quarter helper rows;
+- the report rows in 2027_Comparision, Ramadan and 2027 VS ICP;
+- one Monthly Gap table row.
+
+The order keeps the row-by-row links intact:
+- Distribution by Month goes before BDA, and BDA before SKU mapping-Pricing.
+- The 2027 price row goes before its 2026 row.
+- 2027_by Quarter goes before the 2027_Comparision block.
+
+Excel then moves the remaining links with the rows that shift up. Three sheets need care because of what sits beside the SKU's rows:
+- **SKU mapping-Pricing:** only the SKU's own cells move (A:V, Z:AH). The unified-name list in W:Y and the category list in S2:S6 stay put.
+- **2027_Comparision and 2027_by Quarter:** only the block columns move (V:AH, AD:AN), because pivots sit beside them.
+- **CYvsNY:** its table keeps its rows. The spare pair stays blank.
+
+Do not delete a SKU that other rows were copied from while you still need it as a template.
+
 ## Variables on the New SKU sheet
 
 | Variable | Example | Written to |
@@ -120,5 +155,5 @@ These exist today, before any new SKU is added. `NewSKU_WidenLookupRanges` fixes
 
 ## Files
 
-- `spec/NewSKU.bas`: the VBA module (setup, preview, add, widen ranges).
+- `spec/NewSKU.bas`: the VBA module (setup, preview, add, widen ranges, delete a SKU).
 - `spec/new-sku-guide.md`: this guide.

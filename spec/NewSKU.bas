@@ -9,6 +9,10 @@ Attribute VB_Name = "NewSKU"
 '   NewSKU_Add                Saves a backup copy, then adds the SKU everywhere.
 '   NewSKU_WidenLookupRanges  One-time fix: widens lookup ranges that stop
 '                             before the end of their lists.
+'   NewSKU_DeletePreview      Lists every row a SKU delete would remove.
+'   NewSKU_Delete             Saves a backup copy, then removes a SKU everywhere
+'                             (the reverse of NewSKU_Add).
+'   Setup_DeleteSKU_Section   Adds the Delete a SKU box to an existing New SKU sheet.
 '
 ' How it works: every sheet that keeps one row (or block of rows) per SKU gets
 ' a copy of the rows of a "template" SKU that you name, normally a SKU in the
@@ -64,6 +68,10 @@ Private plan(1 To 6, 1 To 12) As Variant        ' volume 2026, volume 2027, arri
 ' ---- positions found while running ----
 Private mRow As Long                            ' new row in SKU mapping-Pricing
 Private bdaRow(1 To 2) As Long                  ' new row in BDA Allowance Assist (2026, 2027)
+
+' ---- SKU being deleted ----
+Private dCode As Double
+Private dDesc As String
 
 ' ---- IMS Stock columns, read from its header row ----
 Private imsHdr As Long, imsCode As Long, imsLabel As Long, imsSku As Long
@@ -373,9 +381,9 @@ Private Sub CheckRoom()
     m = LastFilled(Sh("SKU mapping-Pricing"), 2, 2, 2000) + 1
     b1 = LastFilled(Sh("BDA Allowance Assist"), 3, 4, 2000) + 1
     b2 = LastFilled(Sh("BDA Allowance Assist Y+1"), 3, 4, 2000) + 1
-    p = LastFilled(Sh("Price Chnge"), 1, 6, 55) + 1
+    p = LastFilled(Sh("Price Chnge"), 1, 6, PriceLimit()) + 1
 
-    If p > 55 Then Problem "Price Chnge", "The 2026 price block (rows 6-55) is full."
+    If p > PriceLimit() Then Problem "Price Chnge", "The 2026 price block (rows 6-" & PriceLimit() & ") is full."
     lim = RefLimit("Consolidation RAW", "Table1", "WSL Price", "Price Chnge")
     If lim > 0 And p > lim Then Problem "Price Chnge", "New 2026 price row " & p & " is below the range Consolidation RAW reads (row " & lim & ")."
     lim = RefLimit("Y+1", "Table19", "WSL Price", "Price Chnge")
@@ -455,12 +463,13 @@ Private Sub Step_SkuMapping()
 End Sub
 
 Private Sub Step_PriceChange()
-    Dim w As Worksheet, t As Long, r As Long, t2 As Long, r2 As Long, i As Long, fml As String
+    Dim w As Worksheet, t As Long, r As Long, t2 As Long, r2 As Long, i As Long, fml As String, lim As Long
     Set w = Sh("Price Chnge")
-    t = FindKey(w, 1, sTpl, 6, 55)
-    r = LastFilled(w, 1, 6, 55) + 1
-    ' The 2027 block (rows 57+) links back row by row: =A6, =A7, ...
-    For i = 57 To 400
+    lim = PriceLimit()                          ' end of the 2026 block (row 55 until a price row is deleted)
+    t = FindKey(w, 1, sTpl, 6, lim)
+    r = LastFilled(w, 1, 6, lim) + 1
+    ' The 2027 block below links back row by row: =A6, =A7, ...
+    For i = lim + 1 To 400
         fml = w.Cells(i, 1).Formula
         If t > 0 And fml = "=A" & t Then t2 = i
         If fml = "=A" & r Then r2 = i
@@ -472,7 +481,7 @@ Private Sub Step_PriceChange()
     Else
         Note w.Name, "row " & r2, "2027 prices (copied from row " & t2 & ")"
     End If
-    If t = 0 Then Problem w.Name, "Template SKU not found in rows 6-55."
+    If t = 0 Then Problem w.Name, "Template SKU not found in the 2026 block (rows 6-" & lim & ")."
     If dryRun Or t = 0 Then Exit Sub
     CopyCells w.Range("A" & t & ":AL" & t), w.Range("A" & r & ":AL" & r)
     w.Range("A" & r).Value = sCode
@@ -992,6 +1001,400 @@ Private Sub Step_CYvsNY()
 End Sub
 
 '==============================================================================
+' Delete a SKU: the reverse of NewSKU_Add
+'
+' Rows are removed in an order that keeps the row-by-row links intact:
+' Distribution by Month (links to BDA) before BDA Allowance Assist (links to
+' SKU mapping-Pricing), the 2027 price row before its 2026 row, 2027_by Quarter
+' before the 2027_Comparision data block, and SKU mapping-Pricing last. Excel
+' then moves every remaining link with the rows that shift up.
+'==============================================================================
+
+Public Sub NewSKU_DeletePreview()
+    RunDeleteSKU True
+End Sub
+
+Public Sub NewSKU_Delete()
+    RunDeleteSKU False
+End Sub
+
+' Adds the "Delete a SKU" box and buttons to a New SKU sheet built before this macro existed.
+Public Sub Setup_DeleteSKU_Section()
+    Dim f As Worksheet, r As Long
+    Set f = Sh(FORM_NAME)
+    If f Is Nothing Then
+        MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "Delete SKU"
+        Exit Sub
+    End If
+    If NameExists("NS_DelCode") Then
+        MsgBox "The New SKU sheet already has the Delete a SKU box (" & ThisWorkbook.Names("NS_DelCode").RefersToRange.Address(False, False) & ").", vbInformation, "Delete SKU"
+        Exit Sub
+    End If
+    r = f.Cells(f.Rows.Count, 2).End(xlUp).Row + 3
+    BuildDeleteSection f, r
+    f.Activate
+    f.Cells(r + 1, 3).Select
+End Sub
+
+Private Sub BuildDeleteSection(f As Worksheet, ByVal r0 As Long)
+    HeaderRow f, r0, Array("Delete a SKU (reverse of Add SKU)", "SKU code", "Description", "Status")
+    f.Cells(r0 + 1, 2).Value = "SKU code to delete"
+    InputCell f.Cells(r0 + 1, 3)
+    f.Cells(r0 + 1, 4).Formula = "=IF(C" & (r0 + 1) & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$C:$C,MATCH(C" & (r0 + 1) & ",'SKU mapping-Pricing'!$B:$B,0)),""not in SKU mapping-Pricing""))"
+    f.Cells(r0 + 1, 5).Formula = "=IF(C" & (r0 + 1) & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$M:$M,MATCH(C" & (r0 + 1) & ",'SKU mapping-Pricing'!$B:$B,0)),""""))"
+    f.Cells(r0 + 2, 2).Value = "Preview delete lists every row it would remove. Delete SKU saves a backup copy first."
+    f.Cells(r0 + 2, 2).Font.Color = RGB(89, 89, 89)
+    ThisWorkbook.Names.Add Name:="NS_DelCode", RefersTo:="='" & FORM_NAME & "'!$C$" & (r0 + 1)
+    AddButton f, f.Range(f.Cells(r0 + 1, 7), f.Cells(r0 + 2, 8)), "Preview delete", "NewSKU_DeletePreview"
+    AddButton f, f.Range(f.Cells(r0 + 1, 9), f.Cells(r0 + 2, 10)), "Delete SKU", "NewSKU_Delete"
+End Sub
+
+Private Sub RunDeleteSKU(ByVal isDry As Boolean)
+    Dim calcMode As Long, stepName As String, w As Worksheet, r As Long, nSales As Double
+    If Sh(FORM_NAME) Is Nothing Then
+        MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "Delete SKU"
+        Exit Sub
+    End If
+    dCode = DeleteCode()
+    If dCode <= 0 Then Exit Sub
+    dryRun = isDry
+    PrepareLog IIf(isDry, "Delete preview for " & Format(dCode, "0") & " on " & Format(Now, "dd mmm yyyy hh:nn") & ": nothing was changed", _
+                          "Deleted SKU " & Format(dCode, "0") & " on " & Format(Now, "dd mmm yyyy hh:nn"))
+    Set w = Sh("SKU mapping-Pricing")
+    r = FindKey(w, 2, dCode, 2, 5000)
+    dDesc = ""
+    If r = 0 Then
+        Problem w.Name, "SKU " & Format(dCode, "0") & " is not in column B."
+    Else
+        dDesc = Trim$(CStr(w.Cells(r, 3).Value))
+        Note w.Name, "row " & r, "SKU " & Format(dCode, "0") & ": " & dDesc
+    End If
+    On Error Resume Next
+    nSales = Application.WorksheetFunction.CountIf(Sh("Sales Vs Activity-RAW").Range("E:E"), dCode)
+    On Error GoTo 0
+    If nSales > 0 Then Warn "Sales Vs Activity-RAW", nSales & " rows of actual sales for this SKU. Its actuals disappear from every report once its rows are deleted."
+    If nProblems > 0 And Not isDry Then
+        MsgBox nProblems & " problem(s) found. Nothing was deleted. See the log in column L.", vbExclamation, "Delete SKU"
+        Exit Sub
+    End If
+    If Not isDry Then
+        If MsgBox("Delete SKU " & Format(dCode, "0") & " - " & dDesc & vbLf & "from every sheet it was added to?" & vbLf & vbLf & _
+                  "A backup copy of the workbook is saved first.", vbYesNo + vbExclamation, "Delete SKU") <> vbYes Then Exit Sub
+    End If
+
+    calcMode = Application.Calculation
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
+    On Error GoTo Failed
+    If Not isDry Then
+        stepName = "backup"
+        If Not SaveBackup("before deleting SKU " & Format(dCode, "0")) Then
+            If MsgBox("The backup copy could not be saved. Continue without a backup?", vbYesNo + vbExclamation, "Delete SKU") <> vbYes Then
+                Application.Calculation = calcMode
+                Application.EnableEvents = True
+                Application.ScreenUpdating = True
+                Exit Sub
+            End If
+        End If
+    End If
+
+    stepName = "Distribution by Month": Del_KeyRows "Distribution by Month", 3, 4
+    stepName = "Distribution by Month Y+1": Del_KeyRows "Distribution by Month Y+1", 3, 4
+    stepName = "BDA Allowance Assist": Del_KeyRows "BDA Allowance Assist", 3, 4
+    stepName = "BDA Allowance Assist Y+1": Del_KeyRows "BDA Allowance Assist Y+1", 3, 4
+    stepName = "Price Chnge": Del_Price
+    stepName = "FCST": Del_KeyRows "FCST", 3, 4
+    stepName = "FCST Y+1": Del_KeyRows "FCST Y+1", 3, 4
+    stepName = "IMS Stock": Del_IMS
+    stepName = "Fayrouz-Arrival": Del_KeyRows "Fayrouz-Arrival", 5, 3
+    stepName = "Fayrouz-Arrival-2027": Del_KeyRows "Fayrouz-Arrival-2027", 5, 3
+    stepName = "Fayrouz Target": Del_KeyRows "Fayrouz Target", 4, 3
+    stepName = "Fayrouz 2027-Target": Del_KeyRows "Fayrouz 2027-Target", 5, 3
+    stepName = "DSCR": Del_KeyRows "DSCR", 4, 2
+    stepName = "DSCR -LS": Del_KeyRows "DSCR -LS", 4, 2
+    stepName = "DSCR Y+1": Del_KeyRows "DSCR Y+1", 4, 2
+    stepName = "Target Split": Del_KeyRows "Target Split", 6, 3
+    stepName = "Target Split Y+1": Del_KeyRows "Target Split Y+1", 6, 3
+    stepName = "Consolidation RAW": Del_TableRows "Consolidation RAW", "Table1", "product code"
+    stepName = "Y+1": Del_TableRows "Y+1", "Table19", "product code"
+    stepName = "2027_by Quarter": Del_ByQuarter
+    stepName = "2027_Comparision data block": Del_CompBlock
+    stepName = "2027_Comparision table": Del_TableRows "2027_Comparision", "Table20", ""
+    stepName = "Ramadan table": Del_TableRows "Ramadan", "Table2014", ""
+    stepName = "2027 VS ICP table": Del_TableRows "2027 VS ICP", "Table2011", ""
+    stepName = "Monthly Gap table": Del_MonthlyGap
+    stepName = "SKU mapping-Pricing": Del_Master
+    Note "CYvsNY", "Table9", "Keeps its rows; the spare pair stays blank after refresh"
+
+    Application.Calculation = calcMode
+    Application.Calculate
+    If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" Then
+        stepName = "refresh pivots"
+        RefreshPivots
+    End If
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    Sh(FORM_NAME).Activate
+    If isDry Then
+        MsgBox "Delete preview done: " & nProblems & " problem(s), " & nWarnings & " point(s) to check." & vbLf & _
+               "Nothing was changed. The rows it would remove are listed in column L.", _
+               IIf(nProblems > 0, vbExclamation, vbInformation), "Delete SKU"
+    Else
+        MsgBox "SKU " & Format(dCode, "0") & " deleted. Type its code in the New SKU code cell (C5)" & vbLf & _
+               "to see the checklist: every 'Found' should now be 0.", vbInformation, "Delete SKU"
+    End If
+    Exit Sub
+
+Failed:
+    Note "ERROR", stepName, Err.Description
+    Application.Calculation = calcMode
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    MsgBox "Stopped at step '" & stepName & "': " & Err.Description & vbLf & vbLf & _
+           "Steps before it were done. Open the backup copy saved at the start to go back.", vbCritical, "Delete SKU"
+End Sub
+
+Private Function DeleteCode() As Double
+    Dim v As Variant
+    v = InVal("NS_DelCode")
+    If Num(v) > 0 Then
+        DeleteCode = Num(v)
+        Exit Function
+    End If
+    v = Application.InputBox("SKU code to delete:", "Delete SKU", Type:=1)
+    If VarType(v) = vbBoolean Then Exit Function            ' Cancel
+    DeleteCode = Num(v)
+End Function
+
+Private Function NameExists(ByVal nm As String) As Boolean
+    Dim n As Object
+    On Error Resume Next
+    Set n = ThisWorkbook.Names(nm)
+    NameExists = Not n Is Nothing
+    On Error GoTo 0
+End Function
+
+' Removes every row whose key column holds the code (bottom up). These sheets hold only their SKU list.
+Private Sub Del_KeyRows(ByVal sheetName As String, ByVal col As Long, ByVal firstRow As Long)
+    Dim w As Worksheet, a As Variant, i As Long, n As Long, lastR As Long, hits() As Long, txt As String
+    Dim wasProt As Boolean
+    Set w = Sh(sheetName)
+    If w Is Nothing Then Exit Sub
+    lastR = LastUsedRow(w)
+    If lastR < firstRow Then lastR = firstRow
+    a = ColValues(w, col, firstRow, lastR)
+    ReDim hits(1 To 1)
+    For i = 1 To UBound(a, 1)
+        If IsKey(a(i, 1), dCode) Then
+            n = n + 1
+            ReDim Preserve hits(1 To n)
+            hits(n) = firstRow + i - 1
+            txt = txt & IIf(n > 1, ", ", "") & hits(n)
+        End If
+    Next i
+    If n = 0 Then
+        Note w.Name, "-", "Not found; nothing to delete"
+        Exit Sub
+    End If
+    Note w.Name, "row " & txt, "Delete " & n & " row(s)"
+    If dryRun Then Exit Sub
+    wasProt = w.ProtectContents
+    If wasProt Then w.Unprotect
+    For i = n To 1 Step -1
+        w.Rows(hits(i)).Delete
+    Next i
+    If wasProt Then ProtectAgain w
+End Sub
+
+' Price Chnge: the 2027 row (=A<2026 row>) first, then the 2026 row. The 2027 block moves up one row,
+' and the ranges Consolidation RAW and Y+1 read move with it.
+Private Sub Del_Price()
+    Dim w As Worksheet, lim As Long, r As Long, r2 As Long
+    Set w = Sh("Price Chnge")
+    lim = PriceLimit()
+    r = FindKey(w, 1, dCode, 6, lim)
+    If r = 0 Then
+        Note w.Name, "-", "Not found in the 2026 block; nothing to delete"
+        Exit Sub
+    End If
+    r2 = PriceRow2027(w, r, lim)
+    If r2 = 0 Then r2 = FindKey(w, 1, dCode, lim + 1, LastUsedRow(w))
+    Note w.Name, "row " & r, "Delete the 2026 price row"
+    If r2 > 0 Then Note w.Name, "row " & r2, "Delete the 2027 price row" Else Warn w.Name, "2027 price row not found; check the 2027 block by hand."
+    If dryRun Then Exit Sub
+    If r2 > 0 Then w.Rows(r2).Delete
+    w.Rows(r).Delete
+End Sub
+
+Private Sub Del_IMS()
+    Dim w As Worksheet, lastE As Long, i As Long, t As Long, wasProt As Boolean
+    Set w = Sh("IMS Stock")
+    If Not ReadImsLayout(w) Then Exit Sub
+    lastE = LastFilled(w, imsLabel, imsHdr + 1, LastUsedRow(w))
+    For i = imsHdr + 1 To lastE
+        If IsKey(w.Cells(i, imsCode).Value, dCode) Then
+            If IsText(w.Cells(i, imsLabel).Value, "IMS Actual ( Sales)") Then
+                t = i
+                Exit For
+            End If
+        End If
+    Next i
+    If t = 0 Then
+        Note w.Name, "-", "Not found; nothing to delete"
+        Exit Sub
+    End If
+    If BlockRow(w, t, "Closing Stock Cover Days") <> 7 Then
+        Problem w.Name, "The block at row " & t & " is not the usual 8 rows (last row 'Closing Stock Cover Days'); delete it by hand."
+        Exit Sub
+    End If
+    Note w.Name, "rows " & t & "-" & (t + 7), "Delete the 8-row stock block"
+    If dryRun Then Exit Sub
+    wasProt = w.ProtectContents
+    If wasProt Then w.Unprotect
+    w.Rows(t & ":" & (t + 7)).Delete
+    If wasProt Then ProtectAgain w
+End Sub
+
+' Table rows: by product code (engine tables) or by description in column 3 (report tables).
+Private Sub Del_TableRows(ByVal sheetName As String, ByVal tableName As String, ByVal header As String)
+    Dim lo As ListObject, a As Variant, i As Long, n As Long, hits() As Long, idx As Long, hit As Boolean
+    Set lo = Sh(sheetName).ListObjects(tableName)
+    If lo.DataBodyRange Is Nothing Then Exit Sub
+    If header = "" Then idx = 3 Else idx = lo.ListColumns(header).Index
+    a = lo.ListColumns(idx).DataBodyRange.Value
+    ReDim hits(1 To 1)
+    For i = 1 To UBound(a, 1)
+        If header = "" Then hit = IsText(a(i, 1), dDesc) And dDesc <> "" Else hit = IsKey(a(i, 1), dCode)
+        If hit Then
+            n = n + 1
+            ReDim Preserve hits(1 To n)
+            hits(n) = i
+        End If
+    Next i
+    If n = 0 Then
+        Note sheetName, tableName, "Not found; nothing to delete"
+        Exit Sub
+    End If
+    Note sheetName, tableName & " -" & n & " rows", "Delete the SKU's table rows"
+    If dryRun Then Exit Sub
+    For i = n To 1 Step -1
+        lo.ListRows(hits(i)).Delete
+    Next i
+End Sub
+
+' 2027_by Quarter AD:AN links row by row to the 2027_Comparision block; remove its rows first.
+Private Sub Del_ByQuarter()
+    Dim q As Worksheet, a As Variant, i As Long, n As Long, hits() As Long
+    Set q = Sh("2027_by Quarter")
+    If dDesc = "" Then Exit Sub
+    a = ColValues(q, 36, 10, LastUsedRow(q))                            ' AJ = description
+    ReDim hits(1 To 1)
+    For i = 1 To UBound(a, 1)
+        If IsText(a(i, 1), dDesc) Then
+            n = n + 1
+            ReDim Preserve hits(1 To n)
+            hits(n) = 10 + i - 1
+        End If
+    Next i
+    If n = 0 Then
+        Note q.Name, "-", "Not found; nothing to delete"
+        Exit Sub
+    End If
+    Note q.Name, "rows " & hits(1) & "-" & hits(n) & " (AD:AN)", "Delete " & n & " helper rows (cells shift up; the pivot beside them stays)"
+    If dryRun Then Exit Sub
+    For i = n To 1 Step -1
+        q.Range(q.Cells(hits(i), 30), q.Cells(hits(i), 40)).Delete Shift:=xlUp
+    Next i
+End Sub
+
+' 2027_Comparision V:AH data block. Cells shift up inside V:AH only: the sheet has pivots and Table20 beside it.
+Private Sub Del_CompBlock()
+    Dim w As Worksheet, a As Variant, i As Long, n As Long, hits() As Long, tblEnd As Long
+    Set w = Sh("2027_Comparision")
+    If dDesc = "" Then Exit Sub
+    With w.ListObjects("Table20").Range
+        tblEnd = .Row + .Rows.Count - 1
+    End With
+    a = ColValues(w, 29, 16, LastUsedRow(w))                             ' AC = description
+    ReDim hits(1 To 1)
+    For i = 1 To UBound(a, 1)
+        If IsText(a(i, 1), dDesc) Then
+            If IsText(w.Cells(16 + i - 1, 23).Value, "M") Or IsText(w.Cells(16 + i - 1, 23).Value, "M-1") Then
+                n = n + 1
+                ReDim Preserve hits(1 To n)
+                hits(n) = 16 + i - 1
+            End If
+        End If
+    Next i
+    If n = 0 Then
+        Note w.Name, "-", "Not found in the data block; nothing to delete"
+        Exit Sub
+    End If
+    If hits(1) <= tblEnd Then
+        Problem w.Name, "Some of the SKU's month rows (from row " & hits(1) & ") sit beside Table20, where column V belongs to the table. Delete those rows of W:AH by hand."
+        Exit Sub
+    End If
+    Note w.Name, "rows " & hits(1) & "-" & hits(n) & " (V:AH)", "Delete " & n & " month rows in the pivot source block"
+    If dryRun Then Exit Sub
+    For i = n To 1 Step -1
+        w.Range(w.Cells(hits(i), 22), w.Cells(hits(i), 34)).Delete Shift:=xlUp
+    Next i
+End Sub
+
+' Table612 reads the pivot list by position; one SKU fewer needs one row fewer.
+Private Sub Del_MonthlyGap()
+    Dim lo As ListObject
+    Set lo = Sh("Monthly Gap").ListObjects("Table612")
+    If lo.ListRows.Count < 2 Then Exit Sub
+    Note "Monthly Gap", "Table612 -1 row", "Remove the last SKU row (the pivot list is one SKU shorter after refresh)"
+    If dryRun Then Exit Sub
+    lo.ListRows(lo.ListRows.Count).Delete
+End Sub
+
+' SKU mapping-Pricing last. Only the SKU's own cells move up: W:Y (unified names) and S2:S6
+' (categories) are separate lists in the same rows and stay where they are.
+Private Sub Del_Master()
+    Dim w As Worksheet, r As Long
+    Set w = Sh("SKU mapping-Pricing")
+    r = FindKey(w, 2, dCode, 2, 5000)
+    If r = 0 Then Exit Sub
+    Note w.Name, "row " & r, "Delete the master row (A:V, Z:AH; the lists in W:Y stay)"
+    If dryRun Then Exit Sub
+    w.Range(w.Cells(r, 26), w.Cells(r, 34)).Delete Shift:=xlUp           ' Z:AH
+    w.Range(w.Cells(r, 20), w.Cells(r, 22)).Delete Shift:=xlUp           ' T:V
+    If r > 6 Then w.Cells(r, 19).Delete Shift:=xlUp                      ' S, below the category list
+    w.Range(w.Cells(r, 1), w.Cells(r, 18)).Delete Shift:=xlUp            ' A:R
+End Sub
+
+Private Sub ProtectAgain(w As Worksheet)
+    w.Protect DrawingObjects:=False, Contents:=True, Scenarios:=False, _
+        AllowFormattingCells:=True, AllowFormattingColumns:=True, AllowFormattingRows:=True, _
+        AllowInsertingColumns:=True, AllowInsertingRows:=True, AllowInsertingHyperlinks:=True, _
+        AllowDeletingColumns:=True, AllowDeletingRows:=True, AllowSorting:=True, _
+        AllowFiltering:=True, AllowUsingPivotTables:=True
+End Sub
+
+' Last row of the 2026 price block = end of the range Consolidation RAW reads ($A$2:$AL$55 -> 55).
+' It moves up when a price row is deleted, so it is read each time.
+Private Function PriceLimit() As Long
+    PriceLimit = RefLimit("Consolidation RAW", "Table1", "WSL Price", "Price Chnge")
+    If PriceLimit = 0 Then PriceLimit = 55
+End Function
+
+' The 2027 price row linked to a 2026 row (its column A is =A<row>); 0 if none.
+Private Function PriceRow2027(w As Worksheet, ByVal r2026 As Long, ByVal lim As Long) As Long
+    Dim i As Long, lastR As Long
+    lastR = LastUsedRow(w)
+    For i = lim + 1 To lastR
+        If w.Cells(i, 1).Formula = "=A" & r2026 Then
+            PriceRow2027 = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+'==============================================================================
 ' The New SKU sheet
 '==============================================================================
 
@@ -1112,6 +1515,7 @@ Private Sub BuildForm(f As Worksheet)
     ThisWorkbook.Names.Add Name:="NS_OpenStock", RefersTo:="='" & FORM_NAME & "'!$C$53"
 
     BuildChecks f, 56
+    BuildDeleteSection f, 94
 
     ' ---- log ----
     f.Range("L4").Value = "Sheet"
