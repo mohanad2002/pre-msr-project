@@ -340,6 +340,31 @@ Private Sub Validate()
         If Not IsText(w.Cells(r, 7).Value, sFg) Then Warn "New SKU", "The F-Group differs from the template's. A new F-Group also needs rows in Gap OL, TTS and 2027 TTS (not done by this macro)."
     End If
     CheckRoom
+    CheckSlicers
+End Sub
+
+' Slicers on a status field can hide the new SKU from a report: the SKU Status slicer on
+' 2027 OL shows only "Current", so a SKU with Status "New" does not appear there.
+Private Sub CheckSlicers()
+    Dim sc As Object, si As Object, src As String, cnt As Long, where As String, isSel As Boolean
+    For Each sc In ThisWorkbook.SlicerCaches
+        src = "": cnt = 0: where = "": isSel = True
+        Set si = Nothing
+        On Error Resume Next
+        src = LCase$(sc.SourceName)
+        cnt = sc.PivotTables.Count
+        If cnt > 0 Then where = sc.PivotTables(1).Parent.Name
+        Set si = sc.SlicerItems(sStatus)
+        If Not si Is Nothing Then isSel = si.Selected
+        On Error GoTo 0
+        If cnt > 0 And (src = "sku tatus" Or src = "sku status" Or src = "status") Then
+            If si Is Nothing Then
+                Warn where, "Slicer " & sc.Name & " has no '" & sStatus & "' item yet. After the pivots refresh, check that it is selected."
+            ElseIf Not isSel Then
+                Warn where, "Slicer " & sc.Name & " hides Status '" & sStatus & "', so this SKU will not show on " & where & ". Use Status 'Current', or select '" & sStatus & "' in the slicer."
+            End If
+        End If
+    Next sc
 End Sub
 
 ' Room left in each list, read from the lookup ranges the engine tables really use.
@@ -408,10 +433,13 @@ Private Sub Step_SkuMapping()
     w.Range("A" & mRow).Value = sUnified
     w.Range("B" & mRow).Value = sCode
     w.Range("C" & mRow).Value = sDesc
-    If IsNumeric(sMosaic) And sMosaic <> "" Then
-        w.Range("D" & mRow).Value = CDbl(sMosaic)      ' CYvsNY matches Mosaic codes as numbers
-    Else
+    ' Mosaic code: same type as the template's. The CYvsNY pivot treats "20000000009" (text) and
+    ' 20000000009 (number) as two products, so a mismatch splits one Mosaic product in two.
+    If VarType(w.Range("D" & t).Value) = vbString Or Not IsNumeric(sMosaic) Or sMosaic = "" Then
+        w.Range("D" & mRow).NumberFormat = "@"
         w.Range("D" & mRow).Value = sMosaic
+    Else
+        w.Range("D" & mRow).Value = CDbl(sMosaic)
     End If
     w.Range("E" & mRow).Value = sShort
     w.Range("F" & mRow).Value = sFgId
@@ -578,8 +606,20 @@ Private Sub Step_IMS()
     For i = 0 To 7
         CopyCells w.Range(w.Cells(t + i, 1), w.Cells(t + i, lastCol)), w.Range(w.Cells(r + i, 1), w.Cells(r + i, lastCol))
     Next i
-    w.Cells(r, imsCode).NumberFormat = "@"                              ' code as text, like the other blocks
+    ' code as text, like the other blocks. Some blocks type the code in more than one row
+    ' (not only the first), so replace it in every row that holds the template code as a value.
+    w.Cells(r, imsCode).NumberFormat = "@"
     w.Cells(r, imsCode).Value = CStr(Format(sCode, "0"))
+    For i = 1 To 7
+        With w.Cells(r + i, imsCode)
+            If Not .HasFormula Then
+                If IsKey(.Value, sTpl) Then
+                    .NumberFormat = "@"
+                    .Value = CStr(Format(sCode, "0"))
+                End If
+            End If
+        End With
+    Next i
     If imsSku > 0 Then w.Cells(r, imsSku).Value = sImsLabel
     ' F-Group label column (if the sheet has one): keep the template's label unless the F-Group changes
     If imsFg > 0 Then
@@ -993,7 +1033,7 @@ Private Sub BuildForm(f As Worksheet)
     Field f, 13, "NS_FGroupID", "F-Group ID", TplMaster("F"), "", "For example E7J."
     Field f, 14, "NS_FGroup", "F-Group", TplMaster("G"), "", ""
     Field f, 15, "NS_UpdFGroup", "Update F-Group (report group)", "=IFERROR(INDEX('Consolidation RAW'!$M:$M,MATCH($C$6,'Consolidation RAW'!$P:$P,0)),"""")", "", "Used by Table1 / Table19 and the 2027 reports."
-    Field f, 16, "NS_Status", "Status", "=""New""", "", "New or Current."
+    Field f, 16, "NS_Status", "Status", TplMaster("M"), "", "Current or New. 2027 OL shows only Current SKUs (SKU Status slicer)."
     Field f, 17, "NS_Active", "Active", "=1", "", "1 = active, 0 = not active."
     Field f, 18, "NS_Format", "Tons per case", TplMaster("P"), "=C18", "Units x grams / 1,000,000. 12 x 900 g = 0.0108. Must be typed."
     Field f, 19, "NS_1C", "1C description", "=C7", "", "SKU mapping-Pricing column Z."
@@ -1125,7 +1165,7 @@ Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
     items.Add Array("2027 VS ICP table", "=COUNTIF('2027 VS ICP'!$C$16:$C$300,$E$7)", "1", "")
     items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "Appears once the pivots are refreshed")
     items.Add Array("2026 DF report (after refresh)", "=COUNTIF('2026 DF , NNS ,Tons,Cases '!$C:$C,$E$5)", "3", "Three pivots: NNS, Tons, Cases")
-    items.Add Array("2027 OL report (after refresh)", "=COUNTIF('2027 OL'!$C:$C,$E$5)", "3", "Three pivots: NNS, Tons, Cases")
+    items.Add Array("2027 OL report (after refresh)", "=COUNTIF('2027 OL'!$C:$C,$E$5)", "3", "Hidden if the SKU Status slicer on 2027 OL does not include this Status")
     items.Add Array("CYvsNY (after refresh)", "=IF($E$10="""",0,COUNTIF(CYvsNY!$E:$E,$E$10))", "2", "Needs the Mosaic product code")
 
     HeaderRow f, r0, Array("Checklist (live; works for SKUs added by hand too)", "Found", "Expected", "Status", "")
