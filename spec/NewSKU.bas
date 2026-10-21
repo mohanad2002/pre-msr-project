@@ -269,7 +269,7 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     Exit Sub
 
 Failed:
-    errText = ErrText()                         ' read first: Note's helpers reset the Err object
+    errText = LastErrorText()                         ' read first: Note's helpers reset the Err object
     Note "ERROR", stepName, errText
     Application.Calculation = calcMode
     Application.EnableEvents = True
@@ -1156,7 +1156,7 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     Exit Sub
 
 Failed:
-    errText = ErrText()                         ' read first: Note's helpers reset the Err object
+    errText = LastErrorText()                         ' read first: Note's helpers reset the Err object
     Note "ERROR", stepName, errText
     Application.Calculation = calcMode
     Application.EnableEvents = True
@@ -1853,9 +1853,9 @@ Private Sub RestoreTableFilters(lo As ListObject, saved As Collection)
 End Sub
 
 ' Error text for the log; some Excel errors carry a number but no description.
-Private Function ErrText() As String
-    ErrText = Err.Description
-    If Len(ErrText) = 0 Then ErrText = "Excel error " & Err.Number
+Private Function LastErrorText() As String
+    LastErrorText = Err.Description
+    If Len(LastErrorText) = 0 Then LastErrorText = "Excel error " & Err.Number
 End Function
 
 Private Function RowBelowEmpty(lo As ListObject) As Boolean
