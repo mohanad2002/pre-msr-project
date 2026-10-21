@@ -45,9 +45,9 @@ Choose a template SKU in the **same F-Group** as the new one, for example the pa
 | F-Group | Nido 1+ | SKU mapping G, BDA B, Target Split E, Table1/Table19 FGROUP_DESC |
 | Update F-Group | Nido 1+ | Table1/Table19, 2027 report tables and data block |
 | Status / Active | Current / 1 | SKU mapping M / N |
-| **Tons per case** | 0.0108 | SKU mapping P, IMS Stock BE. Drives every tons figure |
+| **Tons per case** | 0.0108 | SKU mapping P, IMS Stock "Format" column. Drives every tons figure |
 | 1C / Arabic description | | SKU mapping Z / AA |
-| IMS Stock label | | IMS Stock D |
+| IMS Stock label | | IMS Stock "SKU" column |
 | **WSL price, retail price** per case (SYP) | 16431 / 17088 | SKU mapping I / J. Price Chnge builds the monthly prices from these |
 | Trade terms 2026 and 2027: Progressive, Coverage, Commission, Distribution, each for Sub-Distributor (SD) and Medical WH (MDD) | 3% / 4% ... | BDA Allowance Assist (+Y+1) E:J and M:N; Distribution by Month (+Y+1) E:F |
 | Customer split 2026 and 2027 | 30% SD / 70% Medical WH | Target Split (+Y+1) H, applied to every month. Must add up to 100% |
@@ -55,7 +55,7 @@ Choose a template SKU in the **same F-Group** as the new one, for example the pa
 | Volume plan by month, 2026 and 2027 (cases) | 1,500 | IMS Stock "Nestle Syria Target" row. The forecast row follows it, and FCST / FCST Y+1 read it |
 | Arrivals by month, 2026 and 2027 | | Fayrouz-Arrival / Fayrouz-Arrival-2027. IMS Stock reads them |
 | TPS target by month, 2026 and 2027 | | Fayrouz Target / Fayrouz 2027-Target |
-| Stock on hand before the first month | 0 | IMS Stock Closing Stock, column F |
+| Stock on hand before the first month | 0 | IMS Stock Closing Stock, first month column (Dec 2024) |
 | Refresh pivots when done | Yes | Runs Refresh_all after adding |
 
 The macro does not ask for monthly price-change % (Price Chnge), monthly distribution % or the Table1 / Table19 row layout. These come from the template SKU. In 2026, distribution uses the BDA rate in every month.
@@ -70,8 +70,8 @@ The macro does not ask for monthly price-change % (Price Chnge), monthly distrib
 | Price Chnge | 2 | 2026 row in rows 6-55. The 2027 row sits 56 rows lower and links back (`=A44`). Table1 reads `$A$2:$AL$55`; Y+1 reads `$A$58:$AL$103` |
 | BDA Allowance Assist (+Y+1) | 1 each | C:D link to the master **by row position** (BDA row = master row + 2) |
 | Distribution by Month (+Y+1) | 1 each | A:D link to BDA **on the same row number**. Formula rows are ready to row 45, which is why the old guide says "added automatically" |
-| FCST / FCST Y+1 | 1 each | Read IMS Stock by code (IMS column AT) |
-| IMS Stock | 8-row block | Sales, Forecast, Nestle Syria Target, Expected Arrivals, Total / Opening / Closing Stock, Cover Days. Arrivals are looked up from the Fayrouz sheets by code **as text**. The sheet is protected (no password) |
+| FCST / FCST Y+1 | 1 each | Read IMS Stock by code (the `=VALUE(code)` column, AU since the F-Group column was added) |
+| IMS Stock | 8-row block | Sales, Forecast, Nestle Syria Target, Expected Arrivals, Total / Opening / Closing Stock, Cover Days. Arrivals are looked up from the Fayrouz sheets by code **as text**. The sheet is protected (no password). The macro finds its columns from the header row ("code", "SKU", "Stock Cover Days", "F-Group", "Format" and the month dates), so inserted columns do not break it |
 | Fayrouz-Arrival / Fayrouz-Arrival-2027 | 1 each | Feed IMS Stock arrivals |
 | Fayrouz Target / Fayrouz 2027-Target | 1 each | Check sheets. Only FCST Y+1 column R counts the 2027 one |
 | DSCR, DSCR Y+1 (and DSCR -LS) | 2 each | One row per customer; key = customer code & SKU code. DSCR -LS feeds nothing; it is kept in step anyway |
@@ -115,8 +115,8 @@ These exist today, before any new SKU is added. `NewSKU_WidenLookupRanges` fixes
    - The Monthly Gap pivot list → Table612 (+3 rows).
 
    Adding at the end of each list keeps them aligned. Inserting in the middle of only one of these sheets breaks the link silently, and nothing shows an error. The macro adds at the end, links BDA C:D to the master row explicitly, and warns if the rows do not line up.
-6. **Codes stored as text in some places.** IMS Stock column B and the Fayrouz sheets' column A hold the code as text, and the arrivals lookup matches text. Elsewhere the code is a number. Typing the code as a number in IMS Stock B makes arrivals show 0. The macro writes text there.
-7. **IMS Stock filter.** IMS Stock has a saved filter on B7:AR311. New blocks go below it, so they always show. Extend the filter range if you filter that sheet.
+6. **Codes stored as text in some places.** IMS Stock's "code" column (C since the F-Group column was added) and the Fayrouz sheets' column A hold the code as text, and the arrivals lookup matches text. Elsewhere the code is a number. Typing the code as a number there makes arrivals show 0. The macro writes text there.
+7. **IMS Stock filter.** IMS Stock has a saved filter (A7:AS335 in the After Shift file). New blocks go below it, so they always show. Extend the filter range if you filter that sheet.
 
 ## Files
 

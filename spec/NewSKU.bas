@@ -65,6 +65,11 @@ Private plan(1 To 6, 1 To 12) As Variant        ' volume 2026, volume 2027, arri
 Private mRow As Long                            ' new row in SKU mapping-Pricing
 Private bdaRow(1 To 2) As Long                  ' new row in BDA Allowance Assist (2026, 2027)
 
+' ---- IMS Stock columns, read from its header row ----
+Private imsHdr As Long, imsCode As Long, imsLabel As Long, imsSku As Long
+Private imsFg As Long, imsFormat As Long, imsFirst As Long
+Private imsM26(1 To 12) As Long, imsM27(1 To 12) As Long
+
 '==============================================================================
 ' Public macros
 '==============================================================================
@@ -141,9 +146,8 @@ Public Sub NewSKU_WidenLookupRanges()
     ' Other short ranges
     n = n + Widen("Fayrouz 2027-Target", "'FCST Y+1'!$C$4:$Q$51", "'FCST Y+1'!$C$4:$Q$200")
     n = n + Widen("FCST Y+1", "'Fayrouz 2027-Target'!$A$4:$A$44", "'Fayrouz 2027-Target'!$A$4:$A$200")
-    n = n + Widen("Fayrouz Target", "'IMS Stock'!$B$8:$B$223", "'IMS Stock'!$B$8:$B$10016")
-    n = n + Widen("Fayrouz Target", "'IMS Stock'!$E$8:$E$223", "'IMS Stock'!$E$8:$E$10016")
-    n = n + Widen("Fayrouz Target", "'IMS Stock'!X$8:X$223", "'IMS Stock'!X$8:X$10016")
+    n = n + Widen("Fayrouz Target", "$223,", "$10016,")              ' 'IMS Stock'!..$8:..$223 ranges, whatever the column
+    n = n + Widen("Fayrouz Target", "$223)", "$10016)")
     n = n + Widen("Consolidation RAW", "'SKU mapping-Pricing'!$B$2:$F$60", "'SKU mapping-Pricing'!$B$2:$F$500")
     n = n + Widen("Consolidation RAW", "'SKU mapping-Pricing'!$B$2:$D$94", "'SKU mapping-Pricing'!$B$2:$D$500")
     n = n + Widen("Consolidation RAW", "'SKU mapping-Pricing'!$B$2:$P$100", "'SKU mapping-Pricing'!$B$2:$P$500")
@@ -529,14 +533,19 @@ Private Sub Step_FCST(ByVal sheetName As String)
     w.Range("E" & r).Value = sUnified
 End Sub
 
+' IMS Stock: one 8-row block per SKU. Columns are found from the header row ("code", "SKU",
+' "Stock Cover Days", "Format" and the month dates), so inserted or moved columns do not matter.
 Private Sub Step_IMS()
     Dim w As Worksheet, t As Long, r As Long, lastE As Long, i As Long, m As Long, c As Long
-    Dim wasProt As Boolean
+    Dim wasProt As Boolean, lastCol As Long, tplMaster As Long
+    Dim oFc As Long, oTgt As Long, oArr As Long, oClose As Long
     Set w = Sh("IMS Stock")
-    lastE = LastFilled(w, 5, 8, LastUsedRow(w))                       ' not End(xlUp): it skips rows hidden by the filter
-    For i = 8 To lastE
-        If IsKey(w.Cells(i, 46).Value, sTpl) Then                      ' column AT holds VALUE(code)
-            If IsText(w.Cells(i, 5).Value, "IMS Actual ( Sales)") Then
+    If Not ReadImsLayout(w) Then Exit Sub
+    lastCol = w.UsedRange.Column + w.UsedRange.Columns.Count - 1
+    lastE = LastFilled(w, imsLabel, imsHdr + 1, LastUsedRow(w))        ' not End(xlUp): it skips rows hidden by the filter
+    For i = imsHdr + 1 To lastE
+        If IsKey(w.Cells(i, imsCode).Value, sTpl) Then
+            If IsText(w.Cells(i, imsLabel).Value, "IMS Actual ( Sales)") Then
                 t = i
                 Exit For
             End If
@@ -544,29 +553,48 @@ Private Sub Step_IMS()
     Next i
     r = lastE + 1
     If t = 0 Then
-        Problem w.Name, "The template SKU's 8-row block was not found (column AT, row 'IMS Actual ( Sales)')."
+        Problem w.Name, "The template SKU's 8-row block was not found (column " & ColL(imsCode) & " = template code, column " & ColL(imsLabel) & " = 'IMS Actual ( Sales)')."
         Exit Sub
     End If
-    Note w.Name, "rows " & r & "-" & (r + 7), "8-row stock block (copied from rows " & t & "-" & (t + 7) & ")"
+    oFc = BlockRow(w, t, "IMS Actual ( Sales)-C")
+    oTgt = BlockRow(w, t, "Nestle Syria Target")
+    oArr = BlockRow(w, t, "Expected Arrivales in WH")
+    oClose = BlockRow(w, t, "Closing Stock")
+    If oFc < 0 Or oTgt < 0 Or oArr < 0 Or oClose < 0 Then
+        Problem w.Name, "The template block (rows " & t & "-" & (t + 7) & ") does not have the usual 8 row labels in column " & ColL(imsLabel) & "."
+        Exit Sub
+    End If
+    Note w.Name, "rows " & r & "-" & (r + 7), "8-row stock block (copied from rows " & t & "-" & (t + 7) & "; code in column " & ColL(imsCode) & ")"
+    If Not RowsEmpty(w, r, 8, 1, lastCol) Then Note w.Name, "rows " & r & "-" & (r + 7), "Not empty: 8 new rows are inserted here instead, existing rows move down"
     If w.AutoFilterMode Then
         If w.AutoFilter.Range.Row + w.AutoFilter.Range.Rows.Count - 1 < r Then _
             Warn w.Name, "The new rows are below the filter range " & w.AutoFilter.Range.Address(False, False) & "; extend it if you filter this sheet."
     End If
-    If Not RowsEmpty(w, r, 8, 1, 59) Then Note w.Name, "rows " & r & "-" & (r + 7), "Not empty: 8 new rows are inserted here instead, existing rows move down"
     If dryRun Then Exit Sub
 
     wasProt = w.ProtectContents
     If wasProt Then w.Unprotect
-    If Not RowsEmpty(w, r, 8, 1, 59) Then w.Rows(r & ":" & (r + 7)).Insert Shift:=xlDown
+    If Not RowsEmpty(w, r, 8, 1, lastCol) Then w.Rows(r & ":" & (r + 7)).Insert Shift:=xlDown
     For i = 0 To 7
-        CopyCells w.Range(w.Cells(t + i, 1), w.Cells(t + i, 59)), w.Range(w.Cells(r + i, 1), w.Cells(r + i, 59))
+        CopyCells w.Range(w.Cells(t + i, 1), w.Cells(t + i, lastCol)), w.Range(w.Cells(r + i, 1), w.Cells(r + i, lastCol))
     Next i
-    w.Cells(r, 2).NumberFormat = "@"                                    ' code as text, like the other blocks
-    w.Cells(r, 2).Value = CStr(Format(sCode, "0"))
-    w.Cells(r, 4).Value = sImsLabel
-    ' remove the template's numbers; keep formulas and labels
+    w.Cells(r, imsCode).NumberFormat = "@"                              ' code as text, like the other blocks
+    w.Cells(r, imsCode).Value = CStr(Format(sCode, "0"))
+    If imsSku > 0 Then w.Cells(r, imsSku).Value = sImsLabel
+    ' F-Group label column (if the sheet has one): keep the template's label unless the F-Group changes
+    If imsFg > 0 Then
+        tplMaster = FindKey(Sh("SKU mapping-Pricing"), 2, sTpl, 2, 2000)
+        If tplMaster > 0 Then
+            If Not IsText(Sh("SKU mapping-Pricing").Cells(tplMaster, 7).Value, sFg) Then
+                For i = 0 To 7
+                    If Not w.Cells(r + i, imsFg).HasFormula Then w.Cells(r + i, imsFg).Value = sFg
+                Next i
+            End If
+        End If
+    End If
+    ' remove the template's numbers in the month columns; keep formulas and labels
     For i = 0 To 7
-        For c = 6 To 44                                                 ' F:AR
+        For c = imsFirst To imsM27(12)
             With w.Cells(r + i, c)
                 If Not .HasFormula Then
                     If Not IsEmpty(.Value) Then
@@ -575,24 +603,28 @@ Private Sub Step_IMS()
                 End If
             End With
         Next c
-        If Not IsEmpty(w.Cells(t + i, 57).Value) And Not w.Cells(t + i, 57).HasFormula Then w.Cells(r + i, 57).Value = sFormat   ' BE: tons per case
+        If imsFormat > 0 Then
+            If Not IsEmpty(w.Cells(t + i, imsFormat).Value) And Not w.Cells(t + i, imsFormat).HasFormula Then w.Cells(r + i, imsFormat).Value = sFormat
+        End If
     Next i
     For m = 1 To 12
-        ' row 2: forecast follows the volume plan for future months (as in the other blocks)
-        w.Cells(r + 1, 19 + m).Formula = "=" & ColL(19 + m) & (r + 2)
-        w.Cells(r + 1, 32 + m).Formula = "=" & ColL(32 + m) & (r + 2)
-        ' row 3: volume plan (Nestle Syria Target)
-        If Given(plan(1, m)) Then w.Cells(r + 2, 19 + m).Value = Num(plan(1, m))
-        If Given(plan(2, m)) Then w.Cells(r + 2, 32 + m).Value = Num(plan(2, m))
-        ' row 4: expected arrivals come from the Fayrouz arrival sheets
-        w.Cells(r + 3, 19 + m).Formula = "=IFERROR(VLOOKUP($B" & (r + 3) & ",'Fayrouz-Arrival'!$A$3:$S$146," & ColL(19 + m) & "$6,0),0)"
-        w.Cells(r + 3, 32 + m).Formula = "=IFERROR(VLOOKUP($B" & (r + 3) & ",'Fayrouz-Arrival-2027'!$A$3:$S$75," & ColL(32 + m) & "$6,0),0)"
+        ' forecast row follows the volume plan for future months (as in the other blocks)
+        w.Cells(r + oFc, imsM26(m)).Formula = "=" & ColL(imsM26(m)) & (r + oTgt)
+        w.Cells(r + oFc, imsM27(m)).Formula = "=" & ColL(imsM27(m)) & (r + oTgt)
+        ' volume plan (Nestle Syria Target)
+        If Given(plan(1, m)) Then w.Cells(r + oTgt, imsM26(m)).Value = Num(plan(1, m))
+        If Given(plan(2, m)) Then w.Cells(r + oTgt, imsM27(m)).Value = Num(plan(2, m))
+        ' expected arrivals come from the Fayrouz sheets; the row above the header holds each month's column number there
+        w.Cells(r + oArr, imsM26(m)).Formula = "=IFERROR(VLOOKUP($" & ColL(imsCode) & (r + oArr) & ",'Fayrouz-Arrival'!$A$3:$S$146," & ColL(imsM26(m)) & "$" & (imsHdr - 1) & ",0),0)"
+        w.Cells(r + oArr, imsM27(m)).Formula = "=IFERROR(VLOOKUP($" & ColL(imsCode) & (r + oArr) & ",'Fayrouz-Arrival-2027'!$A$3:$S$75," & ColL(imsM27(m)) & "$" & (imsHdr - 1) & ",0),0)"
     Next m
-    w.Cells(r + 6, 6).Value = Num(sOpenStock)                           ' starting stock (Closing Stock, column F)
-    If w.Cells(t, 4).MergeCells Then
-        Application.DisplayAlerts = False
-        w.Range(w.Cells(r, 4), w.Cells(r + 7, 4)).Merge
-        Application.DisplayAlerts = True
+    w.Cells(r + oClose, imsFirst).Value = Num(sOpenStock)               ' starting stock: Closing Stock in the first month column
+    If imsSku > 0 Then
+        If w.Cells(t, imsSku).MergeCells Then
+            Application.DisplayAlerts = False
+            w.Range(w.Cells(r, imsSku), w.Cells(r + 7, imsSku)).Merge
+            Application.DisplayAlerts = True
+        End If
     End If
     If wasProt Then
         w.Protect DrawingObjects:=False, Contents:=True, Scenarios:=False, _
@@ -602,6 +634,66 @@ Private Sub Step_IMS()
             AllowFiltering:=True, AllowUsingPivotTables:=True
     End If
 End Sub
+
+' Finds the IMS Stock columns from its header row (the row with "Stock Cover Days").
+Private Function ReadImsLayout(w As Worksheet) As Boolean
+    Dim r As Long, c As Long, lastCol As Long, v As Variant, m As Long, missing As String
+    imsHdr = 0: imsCode = 0: imsLabel = 0: imsSku = 0: imsFg = 0: imsFormat = 0: imsFirst = 0
+    For m = 1 To 12
+        imsM26(m) = 0
+        imsM27(m) = 0
+    Next m
+    If w Is Nothing Then Exit Function
+    lastCol = w.UsedRange.Column + w.UsedRange.Columns.Count - 1
+    For r = 1 To 30
+        For c = 1 To lastCol
+            If IsText(w.Cells(r, c).Value, "Stock Cover Days") Then
+                imsHdr = r
+                Exit For
+            End If
+        Next c
+        If imsHdr > 0 Then Exit For
+    Next r
+    If imsHdr = 0 Then
+        Problem w.Name, "Header row not found (no cell 'Stock Cover Days' in rows 1-30)."
+        Exit Function
+    End If
+    For c = 1 To lastCol
+        v = w.Cells(imsHdr, c).Value
+        If IsText(v, "code") Then imsCode = c
+        If IsText(v, "SKU") Then imsSku = c
+        If IsText(v, "Stock Cover Days") Then imsLabel = c
+        If IsText(v, "F-Group") Then imsFg = c
+        If IsText(v, "Format") Then imsFormat = c
+        If VarType(v) = vbDate Then
+            If imsFirst = 0 Then imsFirst = c
+            If Year(v) = 2026 Then imsM26(Month(v)) = c
+            If Year(v) = 2027 Then imsM27(Month(v)) = c
+        End If
+    Next c
+    If imsCode = 0 Then missing = missing & " 'code'"
+    For m = 1 To 12
+        If imsM26(m) = 0 Then missing = missing & " " & MonthName(m, True) & "-2026"
+        If imsM27(m) = 0 Then missing = missing & " " & MonthName(m, True) & "-2027"
+    Next m
+    If Len(missing) > 0 Then
+        Problem w.Name, "Header row " & imsHdr & " is missing:" & missing
+        Exit Function
+    End If
+    ReadImsLayout = True
+End Function
+
+' Offset (0-7) of the row with this label in the block that starts at row t; -1 if absent
+Private Function BlockRow(w As Worksheet, ByVal t As Long, ByVal label As String) As Long
+    Dim i As Long
+    BlockRow = -1
+    For i = 0 To 7
+        If IsText(w.Cells(t + i, imsLabel).Value, label) Then
+            BlockRow = i
+            Exit Function
+        End If
+    Next i
+End Function
 
 ' codeCol: column of the SKU code; monthCol: column of January; planIdx: row of the plan grid
 Private Sub Step_Fayrouz(ByVal sheetName As String, ByVal codeCol As Long, ByVal monthCol As Long, ByVal planIdx As Long)
@@ -906,7 +998,7 @@ Private Sub BuildForm(f As Worksheet)
     Field f, 18, "NS_Format", "Tons per case", TplMaster("P"), "=C18", "Units x grams / 1,000,000. 12 x 900 g = 0.0108. Must be typed."
     Field f, 19, "NS_1C", "1C description", "=C7", "", "SKU mapping-Pricing column Z."
     Field f, 20, "NS_Arabic", "Arabic description", "", "", "SKU mapping-Pricing column AA."
-    Field f, 21, "NS_IMSLabel", "IMS Stock label", "=C7", "", "IMS Stock column D."
+    Field f, 21, "NS_IMSLabel", "IMS Stock label", "=C7", "", "IMS Stock 'SKU' column."
     Field f, 22, "NS_WSL", "WSL price per case (SYP)", TplMaster("I"), "=C22", "Must be typed. Template price shown for reference."
     Field f, 23, "NS_Ret", "Retail price per case (SYP)", TplMaster("J"), "=C23", "Must be typed. Template price shown for reference."
     Field f, 24, "NS_Refresh", "Refresh pivots when done", "=""Yes""", "", "Yes or No. Runs Refresh_all."
@@ -996,7 +1088,7 @@ Private Sub BuildForm(f As Worksheet)
 End Sub
 
 Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
-    Dim r As Long, items As Collection, it As Variant
+    Dim r As Long, items As Collection, it As Variant, imsCol As String
     Set items = New Collection
     ' label | found formula | expected formula | note
     items.Add Array("SKU mapping-Pricing", "=COUNTIF('SKU mapping-Pricing'!$B:$B,$E$5)", "1", "")
@@ -1008,7 +1100,8 @@ Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
     items.Add Array("Distribution by Month Y+1", "=COUNTIF('Distribution by Month Y+1'!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("FCST", "=COUNTIF(FCST!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("FCST Y+1", "=COUNTIF('FCST Y+1'!$C$4:$C$500,$E$5)", "1", "")
-    items.Add Array("IMS Stock (8-row block)", "=SUMPRODUCT(--('IMS Stock'!$B$8:$B$5000&""""=$E$5&""""))", "8", "")
+    If ReadImsLayout(Sh("IMS Stock")) Then imsCol = ColL(imsCode) Else imsCol = "C"
+    items.Add Array("IMS Stock (8-row block)", "=SUMPRODUCT(--('IMS Stock'!$" & imsCol & "$" & (imsHdr + 1) & ":$" & imsCol & "$5000&""""=$E$5&""""))", "8", "")
     items.Add Array("Fayrouz-Arrival", "=SUMPRODUCT(--('Fayrouz-Arrival'!$E$3:$E$500&""""=$E$5&""""))", "1", "Feeds IMS Stock arrivals 2026")
     items.Add Array("Fayrouz-Arrival-2027", "=SUMPRODUCT(--('Fayrouz-Arrival-2027'!$E$3:$E$500&""""=$E$5&""""))", "1", "Feeds IMS Stock arrivals 2027")
     items.Add Array("Fayrouz Target", "=SUMPRODUCT(--('Fayrouz Target'!$D$3:$D$500&""""=$E$5&""""))", "1", "")
