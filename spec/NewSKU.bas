@@ -13,6 +13,10 @@ Attribute VB_Name = "NewSKU"
 '   NewSKU_Delete             Saves a backup copy, then removes a SKU everywhere
 '                             (the reverse of NewSKU_Add).
 '   Setup_DeleteSKU_Section   Adds the Delete a SKU box to an existing New SKU sheet.
+'   NewSKU_ChangePreview      Lists every cell a code / description change would touch.
+'   NewSKU_Change             Saves a backup copy, then changes an existing SKU's code
+'                             and/or description in every sheet.
+'   Setup_ChangeSKU_Section   Adds the Change a SKU box to an existing New SKU sheet.
 '
 ' How it works: every sheet that keeps one row (or block of rows) per SKU gets
 ' a copy of the rows of a "template" SKU that you name, normally a SKU in the
@@ -72,6 +76,16 @@ Private bdaRow(1 To 2) As Long                  ' new row in BDA Allowance Assis
 ' ---- SKU being deleted ----
 Private dCode As Double
 Private dDesc As String
+
+' ---- SKU being changed (code / description) ----
+Private cOld As Double, cOldS As String, cNew As Double, cNewS As String
+Private cRow As Long                            ' its row in SKU mapping-Pricing
+Private cDescOld As String, cDescNew As String, cDescOldQ As String, cDescNewQ As String
+Private cShortNew As String, c1CNew As String
+Private doDesc As Boolean, cDoUnified As Boolean, cDoRaw As Boolean
+Private nCodeCells As Long, nDescCells As Long, nFmlCells As Long
+Private nOldSales As Double, nNewSales As Double
+Private pivKeep As Collection                   ' pivot filter state of the old code / description
 
 ' ---- IMS Stock columns, read from its header row ----
 Private imsHdr As Long, imsCode As Long, imsLabel As Long, imsSku As Long
@@ -1410,6 +1424,520 @@ Private Function PriceRow2027(w As Worksheet, ByVal r2026 As Long, ByVal lim As 
 End Function
 
 '==============================================================================
+' Change a SKU's code or description everywhere
+'==============================================================================
+
+Public Sub NewSKU_ChangePreview()
+    RunChangeSKU True
+End Sub
+
+Public Sub NewSKU_Change()
+    RunChangeSKU False
+End Sub
+
+' Adds the "Change a SKU" box and buttons to a New SKU sheet built before this macro existed.
+Public Sub Setup_ChangeSKU_Section()
+    Dim f As Worksheet, r As Long
+    Set f = Sh(FORM_NAME)
+    If f Is Nothing Then
+        MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "Change SKU"
+        Exit Sub
+    End If
+    If NameExists("NS_ChgCode") Then
+        MsgBox "The New SKU sheet already has the Change a SKU box (" & ThisWorkbook.Names("NS_ChgCode").RefersToRange.Address(False, False) & ").", vbInformation, "Change SKU"
+        Exit Sub
+    End If
+    r = f.Cells(f.Rows.Count, 2).End(xlUp).Row + 3
+    BuildChangeSection f, r
+    f.Activate
+    f.Cells(r + 1, 3).Select
+End Sub
+
+Private Sub BuildChangeSection(f As Worksheet, ByVal r0 As Long)
+    Dim cur As String, m As String
+    cur = "$C$" & (r0 + 1)
+    m = "MATCH(" & cur & ",'SKU mapping-Pricing'!$B:$B,0)"
+    HeaderRow f, r0, Array("Change a SKU's code or description", "New value", "Now", "Notes")
+    ChangeRow f, r0 + 1, "NS_ChgCode", "SKU code now", _
+        "=IF(" & cur & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$C:$C," & m & "),""not in SKU mapping-Pricing""))", _
+        "The SKU to change, with its code as it is today."
+    ChangeRow f, r0 + 2, "NS_ChgNewCode", "New SKU code", _
+        "=IF(C" & (r0 + 2) & "="""",""(keep)"",IF(COUNTIF('SKU mapping-Pricing'!$B:$B,C" & (r0 + 2) & ")>0,""already used by another SKU"",""free""))", _
+        "Blank = keep the code. Replaced in every sheet that types it."
+    ChangeRow f, r0 + 3, "NS_ChgDesc", "New SKU description", _
+        "=IF(" & cur & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$C:$C," & m & "),""""))", _
+        "Blank = keep. Replaces the old description in every sheet that types it."
+    ChangeRow f, r0 + 4, "NS_ChgShort", "New short description", _
+        "=IF(" & cur & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$E:$E," & m & "),""""))", _
+        "Blank = keep. SKU mapping-Pricing column E (Table1 / Table19 'Unifed' read it)."
+    ChangeRow f, r0 + 5, "NS_Chg1C", "New 1C description", _
+        "=IF(" & cur & "="""","""",IFERROR(INDEX('SKU mapping-Pricing'!$Z:$Z," & m & "),""""))", _
+        "Blank = keep. SKU mapping-Pricing column Z."
+    ChangeRow f, r0 + 6, "NS_ChgUnified", "Rename unified names too", "", _
+        "No = keep the old description where it is used as a unified name (SKUDESC / Unifed columns, SKU mapping A, W:X)."
+    f.Cells(r0 + 6, 3).Value = "No"
+    AddList f.Cells(r0 + 6, 3), "Yes,No"
+    ChangeRow f, r0 + 7, "NS_ChgRaw", "Change the pasted data sheets too", "", _
+        "RAW and RAW M-1, Sales vs Activity 2027, From Target Split. Keep Yes so past actuals stay with the SKU."
+    f.Cells(r0 + 7, 3).Value = "Yes"
+    AddList f.Cells(r0 + 7, 3), "Yes,No"
+    f.Cells(r0 + 8, 2).Value = "Preview change lists every cell it would change. Change SKU saves a backup copy first, then refreshes the pivots and keeps their filters."
+    f.Cells(r0 + 8, 2).Font.Color = RGB(89, 89, 89)
+    AddButton f, f.Range(f.Cells(r0 + 1, 7), f.Cells(r0 + 2, 8)), "Preview change", "NewSKU_ChangePreview"
+    AddButton f, f.Range(f.Cells(r0 + 1, 9), f.Cells(r0 + 2, 10)), "Change SKU", "NewSKU_Change"
+End Sub
+
+Private Sub ChangeRow(f As Worksheet, ByVal r As Long, ByVal nm As String, ByVal label As String, _
+                      ByVal nowFormula As String, ByVal hint As String)
+    f.Cells(r, 2).Value = label
+    InputCell f.Cells(r, 3)
+    If nowFormula <> "" Then f.Cells(r, 4).Formula = nowFormula
+    f.Cells(r, 4).Font.Color = RGB(118, 118, 118)
+    f.Cells(r, 5).Value = hint
+    f.Cells(r, 5).Font.Color = RGB(89, 89, 89)
+    ThisWorkbook.Names.Add Name:=nm, RefersTo:="='" & FORM_NAME & "'!$C$" & r
+End Sub
+
+Private Sub RunChangeSKU(ByVal isDry As Boolean)
+    Dim calcMode As Long, stepName As String, errText As String, w As Worksheet, msg As String
+    If Not NameExists("NS_ChgCode") Then
+        MsgBox "Run Setup_ChangeSKU_Section first: it adds the Change a SKU box to the New SKU sheet.", vbExclamation, "Change SKU"
+        Exit Sub
+    End If
+    dryRun = isDry
+    cOld = InNum("NS_ChgCode")
+    PrepareLog IIf(isDry, "Change preview for " & Format(cOld, "0") & " on " & Format(Now, "dd mmm yyyy hh:nn") & ": nothing was changed", _
+                          "Changed SKU " & Format(cOld, "0") & " on " & Format(Now, "dd mmm yyyy hh:nn"))
+    Chg_ReadInputs
+    If nProblems > 0 And Not isDry Then
+        MsgBox nProblems & " problem(s) found. Nothing was changed. See the log in column L.", vbExclamation, "Change SKU"
+        Exit Sub
+    End If
+    If Not isDry Then
+        msg = "Change SKU " & cOldS & " - " & cDescOld & vbLf
+        If cNew > 0 Then msg = msg & vbLf & "Code:  " & cOldS & "  ->  " & cNewS
+        If doDesc Then msg = msg & vbLf & "Description:  " & cDescOld & "  ->  " & cDescNew
+        If cShortNew <> "" Then msg = msg & vbLf & "Short description:  ->  " & cShortNew
+        If c1CNew <> "" Then msg = msg & vbLf & "1C description:  ->  " & c1CNew
+        msg = msg & vbLf & vbLf & "in every sheet? A backup copy of the workbook is saved first."
+        If MsgBox(msg, vbYesNo + vbExclamation, "Change SKU") <> vbYes Then Exit Sub
+    End If
+
+    calcMode = Application.Calculation
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
+    On Error GoTo Failed
+    If Not isDry Then
+        stepName = "backup"
+        If Not SaveBackup("before changing SKU " & cOldS) Then
+            If MsgBox("The backup copy could not be saved. Continue without a backup?", vbYesNo + vbExclamation, "Change SKU") <> vbYes Then
+                Application.Calculation = calcMode
+                Application.EnableEvents = True
+                Application.ScreenUpdating = True
+                Exit Sub
+            End If
+        End If
+    End If
+
+    If cNew > 0 Or doDesc Then
+        stepName = "read pivot filters": Chg_RememberPivots
+        nCodeCells = 0: nDescCells = 0: nFmlCells = 0
+        For Each w In ThisWorkbook.Worksheets
+            If w.Name <> FORM_NAME Then
+                stepName = w.Name
+                Chg_Sheet w
+            End If
+        Next w
+        Note "Total", "", nCodeCells & " code cell(s), " & nDescCells & " description cell(s), " & nFmlCells & " formula(s)" & IIf(dryRun, " would change", " changed")
+    End If
+    stepName = "SKU mapping-Pricing": Chg_MasterOnly
+    If cNew > 0 Then Chg_CheckLinks
+
+    Application.Calculation = calcMode
+    Application.Calculate
+    If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" And (cNew > 0 Or doDesc) Then
+        stepName = "refresh pivots"
+        RefreshPivots
+        stepName = "pivot filters"
+        Chg_RestorePivots
+    ElseIf Not isDry And (cNew > 0 Or doDesc) Then
+        Warn "Pivots", "Not refreshed (Refresh pivots = No). Refresh them, then check that the new code / description is ticked in filtered pivots."
+    End If
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    Sh(FORM_NAME).Activate
+    If isDry Then
+        MsgBox "Change preview done: " & nProblems & " problem(s), " & nWarnings & " point(s) to check." & vbLf & _
+               "Nothing was changed. The cells it would change are listed in column L.", _
+               IIf(nProblems > 0, vbExclamation, vbInformation), "Change SKU"
+    Else
+        MsgBox "SKU " & cOldS & " changed" & IIf(cNew > 0, " to " & cNewS, "") & "." & vbLf & _
+               "Type the code in the New SKU code cell (C5) to see the checklist.", vbInformation, "Change SKU"
+    End If
+    Exit Sub
+
+Failed:
+    errText = LastErrorText()                         ' read first: Note's helpers reset the Err object
+    Note "ERROR", stepName, errText
+    Application.Calculation = calcMode
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    MsgBox "Stopped at step '" & stepName & "': " & errText & vbLf & vbLf & _
+           "Sheets before it were changed. Open the backup copy saved at the start to go back.", vbCritical, "Change SKU"
+End Sub
+
+Private Sub Chg_ReadInputs()
+    Dim w As Worksheet, v As Variant, r As Long
+    cNew = 0: cNewS = "": cDescOld = "": cDescNew = "": doDesc = False
+    cOldS = Format(cOld, "0")
+    cShortNew = InText("NS_ChgShort")
+    c1CNew = InText("NS_Chg1C")
+    cDoUnified = (UCase$(InText("NS_ChgUnified")) = "YES")
+    cDoRaw = (UCase$(InText("NS_ChgRaw")) <> "NO")
+    Set w = Sh("SKU mapping-Pricing")
+    If cOld <= 0 Then
+        Problem FORM_NAME, "Type the SKU code now (the code as it is today)."
+        Exit Sub
+    End If
+    cRow = FindKey(w, 2, cOld, 2, 5000)
+    If cRow = 0 Then
+        Problem w.Name, "SKU " & cOldS & " is not in column B."
+        Exit Sub
+    End If
+    cDescOld = Trim$(CStr(w.Cells(cRow, 3).Value))
+    Note w.Name, "row " & cRow, "SKU " & cOldS & ": " & cDescOld
+
+    v = InVal("NS_ChgNewCode")
+    If Given(v) Then
+        If Not IsNumeric(v) Then
+            Problem FORM_NAME, "New SKU code '" & CStr(v) & "' is not a number."
+        ElseIf CDbl(v) <> cOld Then
+            cNew = CDbl(v)
+            cNewS = Format(cNew, "0")
+            If Len(cNewS) <> 8 Then Warn FORM_NAME, "New SKU code " & cNewS & " does not have 8 digits."
+            r = FindKey(w, 2, cNew, 2, 5000)
+            If r > 0 Then Problem w.Name, "Code " & cNewS & " is already used in row " & r & " (" & CStr(w.Cells(r, 3).Value) & ")."
+            Note FORM_NAME, "code", cOldS & "  ->  " & cNewS
+        End If
+    End If
+
+    cDescNew = InText("NS_ChgDesc")
+    If cDescNew <> "" And cDescNew <> cDescOld Then
+        doDesc = True
+        If cDescOld = "" Then Problem w.Name, "The SKU has no description in column C, so there is nothing to replace."
+        r = FindText(w, 3, cDescNew, 2, 5000)
+        If r > 0 And r <> cRow Then Problem w.Name, "Description '" & cDescNew & "' is already used by row " & r & " (" & CStr(w.Cells(r, 2).Value) & "). Reports match on it, so the two SKUs would merge."
+        r = OtherRowWithText(w, 3, cDescOld, cRow)
+        If r > 0 Then Problem w.Name, "Row " & r & " (" & CStr(w.Cells(r, 2).Value) & ") has the same description '" & cDescOld & "'. Give one of them a different name first, by hand."
+        Note FORM_NAME, "description", cDescOld & "  ->  " & cDescNew
+    End If
+    cDescOldQ = Replace(cDescOld, """", """""")
+    cDescNewQ = Replace(cDescNew, """", """""")
+    If cNew = 0 And Not doDesc And cShortNew = "" And c1CNew = "" Then Problem FORM_NAME, "Nothing to change: type a new code, description, short description or 1C description."
+
+    If cNew > 0 Then
+        On Error Resume Next
+        nOldSales = Application.WorksheetFunction.CountIf(Sh("Sales Vs Activity-RAW").Range("E:E"), cOld)
+        nNewSales = Application.WorksheetFunction.CountIf(Sh("Sales Vs Activity-RAW").Range("E:E"), cNew)
+        On Error GoTo 0
+        If nNewSales > 0 Then Note "Sales Vs Activity-RAW", "info", nNewSales & " rows already have the new code; they count for this SKU after the change."
+        If nOldSales > 0 And Not cDoRaw Then Warn "Sales Vs Activity-RAW", nOldSales & " rows of actuals keep the old code (pasted data sheets = No), so they drop out of the reports."
+    End If
+End Sub
+
+' Row (other than skipRow) whose column holds the text, 0 if none.
+Private Function OtherRowWithText(w As Worksheet, ByVal col As Long, ByVal t As String, ByVal skipRow As Long) As Long
+    Dim a As Variant, i As Long
+    If t = "" Then Exit Function
+    a = ColValues(w, col, 2, LastUsedRow(w))
+    For i = 1 To UBound(a, 1)
+        If i + 1 <> skipRow Then
+            If IsText(a(i, 1), t) Then
+                OtherRowWithText = i + 1
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+' Sheets pasted from the system or from other files.
+Private Function IsPastedData(ByVal nm As String) As Boolean
+    Select Case nm
+        Case "Sales Vs Activity-RAW", "NNSBreakDown-RAW", "Sales Vs Activity-RAW M-1", "NNSBreakDown-RAW M-1", _
+             "Sales vs Activity 2027", "From Target Split"
+            IsPastedData = True
+    End Select
+End Function
+
+' Finds every typed cell holding the old code or description, and every formula that has them
+' written in, then replaces them. Pivot cells are skipped (they follow on refresh); so are
+' formulas that only look the SKU up, because they follow the typed cells.
+Private Sub Chg_Sheet(w As Worksheet)
+    Dim rng As Range, fa As Variant, va As Variant, i As Long, j As Long, s As String, kind As Long
+    Dim c As Range, newF As String, hits As New Collection, h As Variant, skipRaw As Boolean
+    Dim lst(1 To 5) As String, cnt(1 To 5) As Long, wasProt As Boolean, k As Long
+    Dim labels As Variant
+    labels = Array("", "code cell(s)", "description cell(s)", "formula(s)", "unified-name cell(s) kept (Rename unified names = No)", "array formula(s) not changed; edit by hand")
+
+    Set rng = w.UsedRange
+    If rng.Cells.Count = 1 Then
+        ReDim fa(1 To 1, 1 To 1): ReDim va(1 To 1, 1 To 1)
+        fa(1, 1) = rng.Formula: va(1, 1) = rng.Value2
+    Else
+        fa = rng.Formula
+        va = rng.Value2
+    End If
+    For i = 1 To UBound(fa, 1)
+        For j = 1 To UBound(fa, 2)
+            kind = 0
+            If VarType(fa(i, j)) = vbString Then s = fa(i, j) Else s = ""
+            If Len(s) > 0 Then
+                If Left$(s, 1) = "=" Then
+                    If Chg_Formula(s, newF) Then kind = 3
+                ElseIf cNew > 0 And Trim$(s) = cOldS Then
+                    kind = 1
+                ElseIf doDesc And VarType(va(i, j)) = vbString Then
+                    If StrComp(Trim$(s), cDescOld, vbTextCompare) = 0 Then kind = 2
+                End If
+            End If
+            If kind > 0 Then
+                Set c = rng.Cells(i, j)
+                If Not InPivot(w, c) Then
+                    If kind = 2 And Not cDoUnified Then
+                        If IsUnifiedCol(w, c) Then kind = 4
+                    End If
+                    If kind = 3 Then
+                        If c.HasArray Then kind = 5
+                    End If
+                    hits.Add Array(i, j, kind, newF)
+                End If
+            End If
+        Next j
+    Next i
+    If hits.Count = 0 Then Exit Sub
+
+    skipRaw = IsPastedData(w.Name) And Not cDoRaw
+    For Each h In hits
+        k = h(2)
+        cnt(k) = cnt(k) + 1
+        If cnt(k) <= 12 Then
+            lst(k) = lst(k) & IIf(cnt(k) > 1, ", ", "") & rng.Cells(h(0), h(1)).Address(False, False)
+        ElseIf cnt(k) = 13 Then
+            lst(k) = lst(k) & ", ..."
+        End If
+    Next h
+    For k = 1 To 5
+        If cnt(k) > 0 Then
+            If k <= 3 And skipRaw Then
+                Warn w.Name, cnt(k) & " " & labels(k) & " NOT changed (pasted data sheets = No): " & lst(k)
+            ElseIf k <= 3 Then
+                Note w.Name, lst(k), cnt(k) & " " & labels(k)
+            Else
+                Warn w.Name, cnt(k) & " " & labels(k) & ": " & lst(k)
+            End If
+        End If
+    Next k
+    If skipRaw Then Exit Sub
+    nCodeCells = nCodeCells + cnt(1): nDescCells = nDescCells + cnt(2): nFmlCells = nFmlCells + cnt(3)
+    If dryRun Then Exit Sub
+    If cnt(1) + cnt(2) + cnt(3) = 0 Then Exit Sub
+
+    wasProt = w.ProtectContents
+    If wasProt Then
+        On Error Resume Next
+        w.Unprotect
+        On Error GoTo 0
+        If w.ProtectContents Then
+            Warn w.Name, "Sheet is protected with a password; nothing changed here. Unprotect it and run Change SKU again."
+            Exit Sub
+        End If
+    End If
+    For Each h In hits
+        Set c = rng.Cells(h(0), h(1))
+        Select Case h(2)
+            Case 1
+                If VarType(va(h(0), h(1))) = vbString Then
+                    If c.NumberFormat = "@" Then c.Value = cNewS Else c.Value = "'" & cNewS
+                Else
+                    c.Value = cNew
+                End If
+            Case 2
+                c.Value = cDescNew
+            Case 3
+                c.Formula = h(3)
+        End Select
+    Next h
+    If wasProt Then ProtectAgain w
+End Sub
+
+' The formula with the old code / quoted description replaced; False when it has neither.
+Private Function Chg_Formula(ByVal s As String, ByRef outF As String) As Boolean
+    Dim t As String
+    t = s
+    If cNew > 0 Then
+        If InStr(1, t, cOldS) > 0 Then t = ReplaceCode(t)
+    End If
+    If doDesc Then
+        If InStr(1, t, """" & cDescOldQ & """", vbTextCompare) > 0 Then
+            t = Replace(t, """" & cDescOldQ & """", """" & cDescNewQ & """", 1, -1, vbTextCompare)
+        End If
+    End If
+    If t <> s Then
+        outF = t
+        Chg_Formula = True
+    End If
+End Function
+
+' Replaces the old code where it stands on its own (not inside a longer number).
+Private Function ReplaceCode(ByVal s As String) As String
+    Dim p As Long, n As Long, before As String, after As String
+    n = Len(cOldS)
+    p = InStr(1, s, cOldS)
+    Do While p > 0
+        If p > 1 Then before = Mid$(s, p - 1, 1) Else before = ""
+        after = Mid$(s, p + n, 1)
+        If Not (before Like "[0-9.]") And Not (after Like "[0-9.]") Then
+            s = Left$(s, p - 1) & cNewS & Mid$(s, p + n)
+            p = InStr(p + Len(cNewS), s, cOldS)
+        Else
+            p = InStr(p + n, s, cOldS)
+        End If
+    Loop
+    ReplaceCode = s
+End Function
+
+Private Function InPivot(w As Worksheet, c As Range) As Boolean
+    Dim pt As PivotTable
+    For Each pt In w.PivotTables
+        If Not Intersect(c, pt.TableRange2) Is Nothing Then
+            InPivot = True
+            Exit Function
+        End If
+    Next pt
+End Function
+
+' Columns that hold unified names: header has "unif" or "SKUDESC" (SKU mapping A, W:X,
+' Table1 / Table19 SKUDESC and Unifed, FCST Unifed).
+Private Function IsUnifiedCol(w As Worksheet, c As Range) As Boolean
+    Dim lo As ListObject, r As Long, top As Long
+    On Error Resume Next
+    Set lo = c.ListObject
+    On Error GoTo 0
+    If Not lo Is Nothing Then
+        If Not lo.HeaderRowRange Is Nothing Then
+            IsUnifiedCol = LooksUnified(lo.HeaderRowRange.Cells(1, c.Column - lo.Range.Column + 1).Value)
+            Exit Function
+        End If
+    End If
+    top = c.Row - 1
+    If top > 10 Then top = 10
+    For r = 1 To top
+        If LooksUnified(w.Cells(r, c.Column).Value) Then
+            IsUnifiedCol = True
+            Exit Function
+        End If
+    Next r
+End Function
+
+Private Function LooksUnified(ByVal v As Variant) As Boolean
+    Dim h As String
+    If IsError(v) Or IsEmpty(v) Then Exit Function
+    h = LCase$(CStr(v))
+    LooksUnified = (InStr(h, "unif") > 0 Or InStr(h, "skudesc") > 0)
+End Function
+
+' Short and 1C descriptions live only in SKU mapping-Pricing. Runs after Chg_Sheet so it has the last word.
+Private Sub Chg_MasterOnly()
+    Dim w As Worksheet
+    Set w = Sh("SKU mapping-Pricing")
+    If cRow = 0 Then Exit Sub
+    If cShortNew <> "" Then
+        Note w.Name, "E" & cRow, "Short description: " & CStr(w.Cells(cRow, 5).Value) & "  ->  " & cShortNew
+        If Not dryRun Then w.Cells(cRow, 5).Value = cShortNew
+    End If
+    If c1CNew <> "" Then
+        Note w.Name, "Z" & cRow, "1C description: " & CStr(w.Cells(cRow, 26).Value) & "  ->  " & c1CNew
+        If Not dryRun Then w.Cells(cRow, 26).Value = c1CNew
+    End If
+End Sub
+
+' Linked workbooks (Target Split files) are not changed by the macro.
+Private Sub Chg_CheckLinks()
+    Dim links As Variant, i As Long
+    On Error Resume Next
+    links = ThisWorkbook.LinkSources(xlExcelLinks)
+    On Error GoTo 0
+    If IsEmpty(links) Then Exit Sub
+    For i = LBound(links) To UBound(links)
+        Warn "Links", "Linked file still has the old code; update it there: " & links(i)
+    Next i
+End Sub
+
+' Before the change: for every pivot field that shows the old code or description, remember
+' whether it was ticked (or was the page filter), so the new name gets the same state after refresh.
+Private Sub Chg_RememberPivots()
+    Dim w As Worksheet, pt As PivotTable, pf As PivotField, it As Variant, nHidden As Long
+    Set pivKeep = New Collection
+    For Each w In ThisWorkbook.Worksheets
+        For Each pt In w.PivotTables
+            For Each pf In pt.PivotFields
+                If pf.Orientation = xlRowField Or pf.Orientation = xlColumnField Or pf.Orientation = xlPageField Then
+                    If cNew > 0 Then KeepItem w, pt, pf, cOldS, cNewS
+                    If doDesc Then KeepItem w, pt, pf, cDescOld, cDescNew
+                End If
+            Next pf
+        Next pt
+    Next w
+    For Each it In pivKeep
+        If Not it(5) Then nHidden = nHidden + 1
+    Next it
+    Note "Pivots", "", pivKeep.Count & " pivot field(s) show this SKU (" & nHidden & " with it filtered out); the same filter is set on the new name after refresh"
+End Sub
+
+Private Sub KeepItem(w As Worksheet, pt As PivotTable, pf As PivotField, ByVal oldName As String, ByVal newName As String)
+    Dim pi As PivotItem, vis As Boolean, isPage As Boolean
+    On Error Resume Next
+    Set pi = pf.PivotItems(oldName)
+    If pi Is Nothing Then Exit Sub
+    vis = pi.Visible
+    If pf.Orientation = xlPageField Then
+        If Not pf.EnableMultiplePageItems Then isPage = (pf.CurrentPage.Name = oldName)
+    End If
+    On Error GoTo 0
+    pivKeep.Add Array(w.Name, pt.Name, pf.Name, oldName, newName, vis, isPage)
+End Sub
+
+Private Sub Chg_RestorePivots()
+    Dim it As Variant, pt As PivotTable, pf As PivotField, pi As PivotItem, done As Boolean, failed As Boolean
+    If pivKeep Is Nothing Then Exit Sub
+    For Each it In pivKeep
+        Set pt = Nothing: Set pf = Nothing: Set pi = Nothing
+        done = False: failed = False
+        On Error Resume Next
+        Set pt = Sh(it(0)).PivotTables(it(1))
+        Set pf = pt.PivotFields(it(2))
+        Set pi = pf.PivotItems(it(4))
+        If pi Is Nothing Then
+            failed = True
+        ElseIf it(6) Then
+            pf.CurrentPage = it(4)
+            done = True
+        ElseIf pi.Visible <> it(5) Then
+            pi.Visible = it(5)
+            done = True
+        End If
+        If Err.Number <> 0 Then failed = True
+        On Error GoTo 0
+        If failed Then
+            Warn it(0), it(1) & " / " & it(2) & ": '" & it(4) & "' not found after refresh; check that field's filter."
+        ElseIf done Then
+            Note it(0), it(1) & " / " & it(2), "'" & it(4) & "' set to " & IIf(it(6), "the page filter", IIf(it(5), "ticked", "not ticked")) & ", as the old name was"
+        End If
+    Next it
+End Sub
+
+'==============================================================================
 ' The New SKU sheet
 '==============================================================================
 
@@ -1531,6 +2059,7 @@ Private Sub BuildForm(f As Worksheet)
 
     BuildChecks f, 56
     BuildDeleteSection f, 94
+    BuildChangeSection f, 100
 
     ' ---- log ----
     f.Range("L4").Value = "Sheet"

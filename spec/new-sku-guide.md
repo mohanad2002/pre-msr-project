@@ -64,6 +64,39 @@ Excel then moves the remaining links with the rows that shift up. Three sheets n
 
 Do not delete a SKU that other rows were copied from while you still need it as a template.
 
+## Change a SKU's code or description
+
+Use this when a SKU already in the workbook gets a new code or a new name. It replaces the old code and description in every sheet, so nothing has to be retyped.
+
+1. If your New SKU sheet was built before this feature, run `Setup_ChangeSKU_Section` once (Alt+F8). It adds a **Change a SKU** box under the delete box and keeps everything you typed. A new `Setup_NewSKU_Sheet` includes the box already (row 100).
+2. Type the code as it is today in **SKU code now**. The "Now" column shows its current description, short description and 1C description.
+3. Fill only what changes:
+   - **New SKU code.** "Now" says *free* or *already used by another SKU*.
+   - **New SKU description**, the full name (SKU mapping-Pricing column C).
+   - **New short description**, SKU mapping-Pricing column E. Table1 / Table19 `Unifed` read it.
+   - **New 1C description**, SKU mapping-Pricing column Z.
+4. Two options:
+   - **Rename unified names too** (default *No*). If the old description is also used as a unified name (SKU mapping A and W:X, Table1 / Table19 SKUDESC and Unifed, FCST Unifed), those cells keep the old text, because a unified name can group several SKUs. The preview lists them. Choose *Yes* to rename them as well.
+   - **Change the pasted data sheets too** (default *Yes*). This covers Sales Vs Activity-RAW, NNSBreakDown-RAW, their M-1 copies, Sales vs Activity 2027 and From Target Split. Table1 reads actuals by product code, so with *No* the past actuals under the old code drop out of the reports.
+5. Click **Preview change**. Column L lists, sheet by sheet, every cell it would change, with addresses. Nothing changes. Problems stop the change:
+   - the old code is not in SKU mapping-Pricing;
+   - the new code is already used;
+   - the new description is already another SKU's;
+   - another SKU has the same old description.
+6. Click **Change SKU**. A backup copy is saved first (`... - before changing SKU 12345678 ....xlsm`). Then the cells are changed and the pivots are refreshed.
+
+How it works:
+- **Typed cells.** It looks at every typed cell in every sheet, except the New SKU sheet. A cell that is exactly the old code is replaced, keeping the cell's type (text stays text, a number stays a number). A text cell that is exactly the old description is replaced too.
+- **Formulas.** A formula that has the old code or the quoted old description written into it is edited. Formulas that only look the SKU up (VLOOKUP, INDEX/MATCH, SUMIFS on the code column) are left as they are, and follow the typed cells.
+- **Pivots.** Pivot cells are skipped. Before the change it notes which pivot fields show the old code or description, and whether it was ticked or was the page filter. After the refresh it gives the new name the same state, so manual filters (for example "for 3 year files") still show the SKU.
+- **Protected sheets** such as IMS Stock are unprotected for the change and protected again. Array formulas are listed, not changed.
+- **Linked files** (the Target Split workbooks behind FCST column S) are not changed. The preview reminds you to update them.
+
+Not changed:
+- SKU mapping-Pricing Status and the other master columns;
+- the Mosaic code;
+- defined names, data validation lists and conditional formatting rules that have the code written in. None were found in "Pre-MSR  Oct - After Shift - SKU Update3-Extra.xlsm".
+
 ## Variables on the New SKU sheet
 
 | Variable | Example | Written to |
