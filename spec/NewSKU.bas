@@ -2,6 +2,8 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
+' VERSION 2026-11-19 c (isShared fix)
+'
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
 '   NewSKU_Preview            Checks the inputs and lists every row it would add.
