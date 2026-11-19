@@ -11,6 +11,18 @@ Checked against `Pre-MSR  Oct.xlsm` (saved 7 Oct 2026). The reference was the la
 
 The macro was written from the workbook's structure. It was not run in Excel here, because this environment has no Excel. Use it on a copy first. Run **Preview**, which changes nothing, before **Add SKU**.
 
+## Updating from an earlier version
+
+Checked against `Pre-MSR  Nov - BSE1-Enhance -Add Kitkat-Monaf 2.xlsm` (November). That file added the sheets below, and the macro now handles them:
+- **Commission by Month**, which Table1's Commission% now reads;
+- **2027 M vs M-1** with `Table12`;
+- an M-1 half in Table19.
+
+It also deleted Ramadan.
+
+1. In the VBA editor, remove the old NewSKU module and import the new `spec/NewSKU.bas`. Run Debug > Compile VBAProject.
+2. Run `Setup_RefreshNewSKUSheet` (Alt+F8). It rebuilds the checklist (rows 56–93) for the current sheets and adds the Delete / Change boxes if they are missing. What you typed in the form stays.
+
 ## Install (once)
 
 1. Save a copy of the workbook.
@@ -49,11 +61,13 @@ What it removes:
 - DSCR, DSCR -LS, DSCR Y+1 and Target Split (+Y+1), 2 rows each;
 - the Table1 and Table19 rows;
 - the 2027_Comparision month block and the 2027_by Quarter helper rows;
-- the report rows in 2027_Comparision, Ramadan and 2027 VS ICP;
+- the Commission by Month row (same row number as Distribution by Month);
+- the report rows in 2027_Comparision and 2027 VS ICP;
+- the 2027 M vs M-1 row for its short description and the Gap OL row for its report F-Group, but only when no other SKU still uses them (the preview says which);
 - one Monthly Gap table row.
 
 The order keeps the row-by-row links intact:
-- Distribution by Month goes before BDA, and BDA before SKU mapping-Pricing.
+- Distribution by Month and Commission by Month go before BDA, and BDA before SKU mapping-Pricing.
 - The 2027 price row goes before its 2026 row.
 - 2027_by Quarter goes before the 2027_Comparision block.
 
@@ -73,7 +87,7 @@ Use this when a SKU already in the workbook gets a new code or a new name. It re
 3. Fill only what changes:
    - **New SKU code.** "Now" says *free* or *already used by another SKU*.
    - **New SKU description**, the full name (SKU mapping-Pricing column C).
-   - **New short description**, SKU mapping-Pricing column E. Table1 / Table19 `Unifed` read it.
+   - **New short description**, SKU mapping-Pricing column E. Table1 / Table19 `Unifed` read it. The 2027 M vs M-1 row is renamed too when no other SKU shares the old short description; otherwise the preview says to add a row by hand.
    - **New 1C description**, SKU mapping-Pricing column Z.
 4. Two options:
    - **Rename unified names too** (default *No*). If the old description is also used as a unified name (SKU mapping A and W:X, Table1 / Table19 SKUDESC and Unifed, FCST Unifed), those cells keep the old text, because a unified name can group several SKUs. The preview lists them. Choose *Yes* to rename them as well.
@@ -104,20 +118,20 @@ Not changed:
 | **New SKU code** | 12625767 | Every sheet's key column |
 | **Copy settings from SKU** (template) | 12596137 | Picks the rows to copy |
 | **SKU description** | NIDO 1+ GUM 12x900g N4 XA | SKU mapping C, FCST D, Table1/Table19 Product Desc, report tables, 2027_Comparision AC. Reports match on this text, so type it exactly as the system shows it |
-| Short description | NIDO 1+ 900g | SKU mapping E |
+| Short description | NIDO 1+ 900g | SKU mapping E (Table1 / Table19 `Unifed` read it); 2027 M vs M-1 `Table12` row, added when no SKU has this short description yet |
 | Unified description (SKUDESC) | NIDO 1+ GUM 12X900g XA | SKU mapping A, FCST E, Table1/Table19 SKUDESC and Unifed |
 | Mosaic product code | 20000000009 | SKU mapping D. CYvsNY and the Mosaic sheets find SKUs by this code |
 | Category (Main_Cat) | Dairy | SKU mapping L, BDA A, Target Split D, Table1/Table19, report tables |
 | CATDESC | 01 Ambient Dairy | FCST A, Table1/Table19 CATDESC |
 | F-Group ID | E7J | SKU mapping F, Table1/Table19 Fgroup Code |
 | F-Group | Nido 1+ | SKU mapping G, BDA B, Target Split E, Table1/Table19 FGROUP_DESC |
-| Update F-Group | Nido 1+ | Table1/Table19, 2027 report tables and data block |
+| Update F-Group | Nido 1+ | Table1/Table19, 2027 report tables and data block; Gap OL `Table6` row, added when the F-Group is new |
 | Status / Active | Current / 1 | SKU mapping M / N |
 | **Tons per case** | 0.0108 | SKU mapping P, IMS Stock "Format" column. Drives every tons figure |
 | 1C / Arabic description | | SKU mapping Z / AA |
 | IMS Stock label | | IMS Stock "SKU" column |
 | **WSL price, retail price** per case (SYP) | 16431 / 17088 | SKU mapping I / J. Price Chnge builds the monthly prices from these |
-| Trade terms 2026 and 2027: Progressive, Coverage, Commission, Distribution, each for Sub-Distributor (SD) and Medical WH (MDD) | 3% / 4% ... | BDA Allowance Assist (+Y+1) E:J and M:N; Distribution by Month (+Y+1) E:F |
+| Trade terms 2026 and 2027: Progressive, Coverage, Commission, Distribution, each for Sub-Distributor (SD) and Medical WH (MDD) | 3% / 4% ... | BDA Allowance Assist (+Y+1) E:J and M:N; Distribution by Month (+Y+1) E:F; Commission by Month E:F (2026 commission: month 1 links to BDA I:J, the other months repeat it and can be typed over) |
 | Customer split 2026 and 2027 | 30% SD / 70% Medical WH | Target Split (+Y+1) H, applied to every month. Must add up to 100% |
 | DSCR % per customer, 2026 and 2027 | blank | DSCR, DSCR -LS, DSCR Y+1 F:Q. Blank copies the template's monthly % |
 | Volume plan by month, 2026 and 2027 (cases) | 1,500 | IMS Stock "Nestle Syria Target" row. The forecast row follows it, and FCST / FCST Y+1 read it |
@@ -138,28 +152,31 @@ The macro does not ask for monthly price-change % (Price Chnge), monthly distrib
 | Price Chnge | 2 | 2026 row in rows 6-55. The 2027 row sits 56 rows lower and links back (`=A44`). Table1 reads `$A$2:$AL$55`; Y+1 reads `$A$58:$AL$103` |
 | BDA Allowance Assist (+Y+1) | 1 each | C:D link to the master **by row position** (BDA row = master row + 2) |
 | Distribution by Month (+Y+1) | 1 each | A:D link to BDA **on the same row number**. Formula rows are ready to row 45, which is why the old guide says "added automatically" |
+| Commission by Month | 1 | 2026 commission % by month and customer. A:D link to BDA on the same row number. Table1 Commission% finds the row by matching the code in **Distribution by Month** column C, so this row must sit on the Distribution by Month row number |
 | FCST / FCST Y+1 | 1 each | Read IMS Stock by code (the `=VALUE(code)` column, AU since the F-Group column was added) |
 | IMS Stock | 8-row block | Sales, Forecast, Nestle Syria Target, Expected Arrivals, Total / Opening / Closing Stock, Cover Days. Arrivals are looked up from the Fayrouz sheets by code **as text**. The sheet is protected (no password). The macro finds its columns from the header row ("code", "SKU", "Stock Cover Days", "F-Group", "Format" and the month dates), so inserted columns do not break it |
 | Fayrouz-Arrival / Fayrouz-Arrival-2027 | 1 each | Feed IMS Stock arrivals |
 | Fayrouz Target / Fayrouz 2027-Target | 1 each | Check sheets. Only FCST Y+1 column R counts the 2027 one |
 | DSCR, DSCR Y+1 (and DSCR -LS) | 2 each | One row per customer; key = customer code & SKU code. DSCR -LS feeds nothing; it is kept in step anyway |
 | Target Split (+Y+1) | 2 each | One row per customer; key = customer name & SKU code |
-| Consolidation RAW, `Table1` | 48 | 2 customers x 12 months x M and M-1. Columns A:Q are typed keys; everything else is formulas that read the sheets above |
-| Y+1, `Table19` | 24 | 2 customers x 12 months, M only |
-| 2027_Comparision data block W:AH | 24 (12 for a 2027-only SKU) | Source of the pivots on 2027_Comparision, 2027 VS ICP, Ramadan and 2027_by Quarter |
+| Consolidation RAW, `Table1` | 24 for a new SKU | 2 customers x 12 months. Existing SKUs also have 24 M-1 rows (last month's Pre-MSR); a new SKU has no M-1 history, so the macro copies only the template's M rows. Columns A:Q are typed keys; everything else is formulas that read the sheets above |
+| Y+1, `Table19` | 24 for a new SKU | Same as Table1: M and M-1 since November, M only for a new SKU |
+| 2027_Comparision data block W:AH | 24 (12 for a 2027-only SKU) | Source of the pivots on 2027_Comparision, 2027 VS ICP and 2027_by Quarter |
 | 2027_by Quarter AD:AN | same as above | Links to 2027_Comparision row by row (6 rows apart) |
-| 2027_Comparision `Table20`, Ramadan `Table2014`, 2027 VS ICP `Table2011` | 1 each | Row inside the category section, so the "Total Dairy" subtotal includes it |
+| 2027_Comparision `Table20`, 2027 VS ICP `Table2011` | 1 each | Row inside the category section, so the "Total Dairy" subtotal includes it |
+| 2027 M vs M-1 `Table12` | 1 per short description | Category / F-Group / short description; sums its pivot (X:AI) by short description. Shared by SKUs with the same short description |
+| Gap OL `Table6` | 1 per report F-Group | Category / Update F-Group, inside the category section. Shared by the SKUs of that F-Group |
 | Monthly Gap `Table612` | 1 | Reads the pivot list in CD:CE by position, so one more SKU needs one more table row |
 | CYvsNY `Table9` | 2 | 2026 and 2027 rows; has room for 41 SKUs (39 after the next one) |
 
 ### Sheets that update by themselves
 
-- **After Refresh_all:** 2026 DF, Gap OL, Monthly Gap pivots, TTS, 2027 OL, 2027 TTS, CYvsNY pivots, DF, Data Check, Check, Check Mosaic, Target Check, FCST_Mosaic Submission, 2027-Mosaic, Fico Assist pivots, 2027 Allowance, OTAllowance %. All are pivots over Table1, Table19 or the 2027_Comparision block.
+- **After Refresh_all:** 2026 DF, Gap OL pivots, 2027 M vs M-1 pivot, for 3 year files (+ Next Year), Monthly Gap pivots, TTS, 2027 OL, 2027 TTS, CYvsNY pivots, DF, Data Check, Check, Check Mosaic, Target Check, FCST_Mosaic Submission, 2027-Mosaic, Fico Assist pivots, 2027 Allowance, OTAllowance %. All are pivots over Table1, Table19 or the 2027_Comparision block.
 - **System exports each month:** Sales Vs Activity-RAW, NNSBreakDown-RAW and their M-1 copies.
 
 ### Not done by the macro
 
-- **A new F-Group:** Gap OL, TTS and 2027 TTS have one row per F-Group. A SKU in a new F-Group needs rows there by hand. Preview warns when the F-Group differs from the template's.
+- **A new F-Group:** TTS and 2027 TTS have one row per F-Group. A SKU in a new F-Group needs rows there by hand (Gap OL's table is now added by the macro). Preview warns when the F-Group differs from the template's.
 - **The Fico Assist top block and For-Fico** (pasted values), **2027 check** columns K:AA and **Sales vs Activity 2027**. Update these by hand if you use them; nothing else reads them.
 
 ## Link problems found
@@ -177,7 +194,7 @@ These exist today, before any new SKU is added. `NewSKU_WidenLookupRanges` fixes
 
    All are widened.
 5. **Rows linked by position, not by code:**
-   - SKU mapping-Pricing → BDA (row + 2) → Distribution by Month (same row).
+   - SKU mapping-Pricing → BDA (row + 2) → Distribution by Month and Commission by Month (same row).
    - Price Chnge 2026 → 2027 (+56 rows).
    - 2027_Comparision → 2027_by Quarter (−6 rows).
    - The Monthly Gap pivot list → Table612 (+3 rows).

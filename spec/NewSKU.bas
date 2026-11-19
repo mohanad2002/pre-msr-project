@@ -17,6 +17,8 @@ Attribute VB_Name = "NewSKU"
 '   NewSKU_Change             Saves a backup copy, then changes an existing SKU's code
 '                             and/or description in every sheet.
 '   Setup_ChangeSKU_Section   Adds the Change a SKU box to an existing New SKU sheet.
+'   Setup_RefreshNewSKUSheet  Brings an existing New SKU sheet up to date (checklist,
+'                             Delete and Change boxes) without clearing your inputs.
 '
 ' How it works: every sheet that keeps one row (or block of rows) per SKU gets
 ' a copy of the rows of a "template" SKU that you name, normally a SKU in the
@@ -76,6 +78,8 @@ Private bdaRow(1 To 2) As Long                  ' new row in BDA Allowance Assis
 ' ---- SKU being deleted ----
 Private dCode As Double
 Private dDesc As String
+Private dShort As String, dUpdFg As String              ' its rows in 2027 M vs M-1 and Gap OL
+Private dShortShared As Boolean, dUpdFgShared As Boolean ' True when another SKU still uses them
 
 ' ---- SKU being changed (code / description) ----
 Private cOld As Double, cOldS As String, cNew As Double, cNewS As String
@@ -240,6 +244,7 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     stepName = "BDA Allowance Assist Y+1": Step_BDA "BDA Allowance Assist Y+1", 2
     stepName = "Distribution by Month": Step_Distribution "Distribution by Month", "BDA Allowance Assist", 1
     stepName = "Distribution by Month Y+1": Step_Distribution "Distribution by Month Y+1", "BDA Allowance Assist Y+1", 2
+    stepName = "Commission by Month": Step_Commission
     stepName = "FCST": Step_FCST "FCST"
     stepName = "FCST Y+1": Step_FCST "FCST Y+1"
     stepName = "IMS Stock": Step_IMS
@@ -256,8 +261,9 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     stepName = "Y+1": Step_EngineTable "Y+1", "Table19"
     stepName = "2027_Comparision data block": Step_CompBlock
     stepName = "2027_Comparision table": Step_ReportTable "2027_Comparision", "Table20"
-    stepName = "Ramadan table": Step_ReportTable "Ramadan", "Table2014"
     stepName = "2027 VS ICP table": Step_ReportTable "2027 VS ICP", "Table2011"
+    stepName = "2027 M vs M-1 table": Step_ReportTable "2027 M vs M-1", "Table12", 3, sShort, sFg, True
+    stepName = "Gap OL table": Step_ReportTable "Gap OL", "Table6", 2, sUpdFg, "", True
     stepName = "Monthly Gap table": Step_MonthlyGap
     stepName = "CYvsNY table": Step_CYvsNY
 
@@ -369,7 +375,7 @@ End Sub
 ' Slicers on a status field can hide the new SKU from a report: the SKU Status slicer on
 ' 2027 OL shows only "Current", so a SKU with Status "New" does not appear there.
 Private Sub CheckSlicers()
-    Dim sc As Object, si As Object, src As String, cnt As Long, where As String, isSel As Boolean
+    Dim sc As Object, si As Object, it As Object, src As String, cnt As Long, where As String, isSel As Boolean
     For Each sc In ThisWorkbook.SlicerCaches
         src = "": cnt = 0: where = "": isSel = True
         Set si = Nothing
@@ -377,8 +383,12 @@ Private Sub CheckSlicers()
         src = LCase$(sc.SourceName)
         cnt = sc.PivotTables.Count
         If cnt > 0 Then where = sc.PivotTables(1).Parent.Name
-        Set si = sc.SlicerItems(sStatus)
-        If Not si Is Nothing Then isSel = si.Selected
+        For Each it In sc.SlicerItems           ' by name; SlicerItems("Current") is not reliable
+            If StrComp(CStr(it.Name), sStatus, vbTextCompare) = 0 Then
+                Set si = it
+                isSel = it.Selected
+            End If
+        Next it
         On Error GoTo 0
         If cnt > 0 And (src = "sku tatus" Or src = "sku status" Or src = "status") Then
             If si Is Nothing Then
@@ -868,22 +878,34 @@ End Sub
 Private Sub Step_EngineTable(ByVal sheetName As String, ByVal tableName As String)
     Dim lo As ListObject, keyIdx As Long, a As Variant, i As Long, n As Long, k As Long
     Dim tplRows As New Collection, nr As ListRow, src As Range, saved As Collection
+    Dim typeIdx As Long, ty As Variant
     Set lo = Sh(sheetName).ListObjects(tableName)
     keyIdx = lo.ListColumns("product code").Index
     a = lo.ListColumns(keyIdx).DataBodyRange.Value
+    ' A new SKU has no last-month (M-1) history, so only the template's M rows are copied.
+    On Error Resume Next
+    typeIdx = lo.ListColumns("FCST Type").Index
+    On Error GoTo 0
+    If typeIdx > 0 Then ty = lo.ListColumns(typeIdx).DataBodyRange.Value
     For i = 1 To UBound(a, 1)
-        If IsKey(a(i, 1), sTpl) Then tplRows.Add i
+        If IsKey(a(i, 1), sTpl) Then
+            If typeIdx = 0 Then
+                tplRows.Add i
+            ElseIf IsText(ty(i, 1), "M") Then
+                tplRows.Add i
+            End If
+        End If
     Next i
     n = tplRows.Count
     If n = 0 Then
-        Problem sheetName, "The template SKU has no rows in " & tableName & "."
+        Problem sheetName, "The template SKU has no " & IIf(typeIdx > 0, "M ", "") & "rows in " & tableName & "."
         Exit Sub
     End If
     If Not RowBelowEmpty(lo) Then
         Problem sheetName, "The row under " & tableName & " is not empty, so rows cannot be added safely."
         Exit Sub
     End If
-    Note sheetName, tableName & " +" & n & " rows", "Customer x month rows (copied from the template SKU's " & n & " rows)"
+    Note sheetName, tableName & " +" & n & " rows", "Customer x month rows (copied from the template SKU's " & n & IIf(typeIdx > 0, " M", "") & " rows)"
     If dryRun Then Exit Sub
     Set saved = ClearTableFilters(lo)
     For k = 1 To n
@@ -958,11 +980,32 @@ End Sub
 
 ' Report tables with category sections and subtotal rows: insert inside the section,
 ' above its last SKU row, so the section's SUM range grows to include the new row.
-Private Sub Step_ReportTable(ByVal sheetName As String, ByVal tableName As String)
-    Dim lo As ListObject, a As Variant, i As Long, idx As Long, nr As ListRow, saved As Collection
-    Set lo = Sh(sheetName).ListObjects(tableName)
+' A report table with a section per category. keyCol holds the row key: the description (column 3,
+' the default), the short description (2027 M vs M-1) or the report F-Group (Gap OL, column 2).
+' onlyIfMissing: tables with one row per short description / F-Group get a row only when the key is new.
+Private Sub Step_ReportTable(ByVal sheetName As String, ByVal tableName As String, _
+                             Optional ByVal keyCol As Long = 3, Optional ByVal keyText As String = "", _
+                             Optional ByVal fgText As String = "", Optional ByVal onlyIfMissing As Boolean = False)
+    Dim w As Worksheet, lo As ListObject, a As Variant, k As Variant, i As Long, idx As Long, nr As ListRow, saved As Collection
+    Set w = Sh(sheetName)
+    If Not w Is Nothing Then
+        On Error Resume Next
+        Set lo = w.ListObjects(tableName)
+        On Error GoTo 0
+    End If
+    If lo Is Nothing Then
+        Note sheetName, tableName, "Not in this workbook; skipped"
+        Exit Sub
+    End If
+    If keyText = "" Then keyText = sDesc
+    If fgText = "" Then fgText = sUpdFg
     a = lo.ListColumns(1).DataBodyRange.Value
+    k = lo.ListColumns(keyCol).DataBodyRange.Value
     For i = 1 To UBound(a, 1)
+        If onlyIfMissing And IsText(k(i, 1), keyText) Then
+            Note sheetName, tableName & " row " & (lo.HeaderRowRange.Row + i), "Already has a row for '" & keyText & "'"
+            Exit Sub
+        End If
         If IsText(a(i, 1), sCat) Then idx = i
     Next i
     If idx = 0 Then
@@ -973,15 +1016,58 @@ Private Sub Step_ReportTable(ByVal sheetName As String, ByVal tableName As Strin
         Problem sheetName, "The row under " & tableName & " is not empty, so a row cannot be added safely. Add the SKU by hand."
         Exit Sub
     End If
-    Note sheetName, tableName & " row " & (lo.HeaderRowRange.Row + idx), "Report row in the " & sCat & " section"
+    Note sheetName, tableName & " row " & (lo.HeaderRowRange.Row + idx), "Report row '" & keyText & "' in the " & sCat & " section"
     If dryRun Then Exit Sub
     Set saved = ClearTableFilters(lo)
     Set nr = lo.ListRows.Add(Position:=idx, AlwaysInsert:=False)
     CopyCells lo.ListRows(idx + 1).Range, nr.Range
     nr.Range.Cells(1, 1).Value = sCat
-    nr.Range.Cells(1, 2).Value = sUpdFg
-    nr.Range.Cells(1, 3).Value = sDesc
+    If keyCol = 3 Then nr.Range.Cells(1, 2).Value = fgText
+    nr.Range.Cells(1, keyCol).Value = keyText
     RestoreTableFilters lo, saved
+End Sub
+
+' Commission by Month: one row per SKU on the same row number as Distribution by Month, because
+' Table1 finds the row through Distribution by Month column C. Month 1 links to the BDA commission
+' (columns I:J); the other months repeat month 1 and can be typed over.
+Private Sub Step_Commission()
+    Dim w As Worksheet, d As Worksheet, t As Long, r As Long, c As Long, lastR As Long, gaps As String
+    Set w = Sh("Commission by Month")
+    If w Is Nothing Then
+        Note "Commission by Month", "-", "Not in this workbook; skipped"
+        Exit Sub
+    End If
+    Set d = Sh("Distribution by Month")
+    lastR = LastFilled(d, 3, 4, 2000)
+    For c = 4 To lastR                              ' SKUs added before this step existed
+        If HasValue(d.Cells(c, 3).Value) Then
+            If Not IsKey(w.Cells(c, 3).Value, Num(d.Cells(c, 3).Value)) Then gaps = gaps & IIf(gaps = "", "", ", ") & c & " (" & CStr(d.Cells(c, 3).Value) & ")"
+        End If
+    Next c
+    If gaps <> "" Then Warn w.Name, "No commission row on the Distribution by Month row of: " & gaps & ". Table1 Commission% is 0 for them; copy a row there by hand."
+    r = bdaRow(1)
+    If r < 4 Then Exit Sub                          ' BDA row not found; already reported
+    t = FindKey(w, 3, sTpl, 4, 2000)
+    If t = 0 Then t = 4
+    If Not RowsEmpty(w, r, 1, 1, 28) Then
+        Problem w.Name, "Row " & r & " is not empty. It must hold the new SKU, on the same row as Distribution by Month."
+        Exit Sub
+    End If
+    Note w.Name, "row " & r, "Commission % by month (month 1 linked to BDA Allowance Assist I:J row " & r & ")"
+    If dryRun Then Exit Sub
+    CopyCells w.Range("A" & t & ":AB" & t), w.Range("A" & r & ":AB" & r)
+    For c = 1 To 4
+        w.Cells(r, c).Formula = "='BDA Allowance Assist'!" & ColL(c) & r
+    Next c
+    w.Cells(r, 5).Formula = "='BDA Allowance Assist'!I" & r
+    w.Cells(r, 6).Formula = "='BDA Allowance Assist'!J" & r
+    For c = 7 To 28                                 ' G:AB, Sub-Distributor and Medical WH by turns
+        If c Mod 2 = 1 Then
+            w.Cells(r, c).Formula = "=$E" & r
+        Else
+            w.Cells(r, c).Formula = "=$F" & r
+        End If
+    Next c
 End Sub
 
 ' Monthly Gap Table612 reads the pivot list in CD:CE row by row; one more SKU needs one more row.
@@ -1041,6 +1127,28 @@ Public Sub NewSKU_Delete()
     RunDeleteSKU False
 End Sub
 
+' Brings a New SKU sheet built by an earlier version up to date without clearing what you typed:
+' rebuilds the checklist (rows 56 to the Delete box) and adds the Delete and Change boxes if missing.
+Public Sub Setup_RefreshNewSKUSheet()
+    Dim f As Worksheet, lastR As Long, used As Long
+    Set f = Sh(FORM_NAME)
+    If f Is Nothing Then
+        MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "New SKU"
+        Exit Sub
+    End If
+    lastR = 93
+    If NameExists("NS_DelCode") Then lastR = ThisWorkbook.Names("NS_DelCode").RefersToRange.Row - 2
+    f.Range(f.Cells(56, 2), f.Cells(lastR, 6)).Clear
+    used = BuildChecks(f, 56)
+    If used > lastR Then
+        MsgBox "The checklist now ends on row " & used & " and runs into the Delete a SKU box. Run Setup_NewSKU_Sheet to rebuild the sheet.", vbExclamation, "New SKU"
+    End If
+    If Not NameExists("NS_DelCode") Then BuildDeleteSection f, used + 3
+    If Not NameExists("NS_ChgCode") Then BuildChangeSection f, f.Cells(f.Rows.Count, 2).End(xlUp).Row + 3
+    f.Activate
+    MsgBox "The New SKU sheet is up to date. Checklist: rows 56-" & used & ".", vbInformation, "New SKU"
+End Sub
+
 ' Adds the "Delete a SKU" box and buttons to a New SKU sheet built before this macro existed.
 Public Sub Setup_DeleteSKU_Section()
     Dim f As Worksheet, r As Long
@@ -1091,6 +1199,9 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     Else
         dDesc = Trim$(CStr(w.Cells(r, 3).Value))
         Note w.Name, "row " & r, "SKU " & Format(dCode, "0") & ": " & dDesc
+        dShort = Trim$(CStr(w.Cells(r, 5).Value))
+        dShortShared = (OtherRowWithText(w, 5, dShort, r) > 0)
+        UpdFgOf dCode, dUpdFg, dUpdFgShared
     End If
     On Error Resume Next
     nSales = Application.WorksheetFunction.CountIf(Sh("Sales Vs Activity-RAW").Range("E:E"), dCode)
@@ -1124,6 +1235,7 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
 
     stepName = "Distribution by Month": Del_KeyRows "Distribution by Month", 3, 4
     stepName = "Distribution by Month Y+1": Del_KeyRows "Distribution by Month Y+1", 3, 4
+    stepName = "Commission by Month": Del_KeyRows "Commission by Month", 3, 4
     stepName = "BDA Allowance Assist": Del_KeyRows "BDA Allowance Assist", 3, 4
     stepName = "BDA Allowance Assist Y+1": Del_KeyRows "BDA Allowance Assist Y+1", 3, 4
     stepName = "Price Chnge": Del_Price
@@ -1144,8 +1256,9 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     stepName = "2027_by Quarter": Del_ByQuarter
     stepName = "2027_Comparision data block": Del_CompBlock
     stepName = "2027_Comparision table": Del_TableRows "2027_Comparision", "Table20", ""
-    stepName = "Ramadan table": Del_TableRows "Ramadan", "Table2014", ""
     stepName = "2027 VS ICP table": Del_TableRows "2027 VS ICP", "Table2011", ""
+    stepName = "2027 M vs M-1 table": Del_SharedRow "2027 M vs M-1", "Table12", 3, dShort, dShortShared
+    stepName = "Gap OL table": Del_SharedRow "Gap OL", "Table6", 2, dUpdFg, dUpdFgShared
     stepName = "Monthly Gap table": Del_MonthlyGap
     stepName = "SKU mapping-Pricing": Del_Master
     Note "CYvsNY", "Table9", "Keeps its rows; the spare pair stays blank after refresh"
@@ -1311,6 +1424,70 @@ Private Sub Del_TableRows(ByVal sheetName As String, ByVal tableName As String, 
 End Sub
 
 ' 2027_by Quarter AD:AN links row by row to the 2027_Comparision block; remove its rows first.
+' Report rows shared by several SKUs (one per short description or report F-Group):
+' removed only when no other SKU still uses them.
+Private Sub Del_SharedRow(ByVal sheetName As String, ByVal tableName As String, ByVal keyCol As Long, _
+                          ByVal keyText As String, ByVal stillUsed As Boolean)
+    Dim w As Worksheet, lo As ListObject, a As Variant, i As Long, n As Long, hits() As Long, saved As Collection
+    Set w = Sh(sheetName)
+    If w Is Nothing Or keyText = "" Then Exit Sub
+    On Error Resume Next
+    Set lo = w.ListObjects(tableName)
+    On Error GoTo 0
+    If lo Is Nothing Then Exit Sub
+    If lo.DataBodyRange Is Nothing Then Exit Sub
+    If stillUsed Then
+        Note sheetName, tableName, "Row '" & keyText & "' kept: other SKUs still use it"
+        Exit Sub
+    End If
+    a = lo.ListColumns(keyCol).DataBodyRange.Value
+    ReDim hits(1 To 1)
+    For i = 1 To UBound(a, 1)
+        If IsText(a(i, 1), keyText) Then
+            n = n + 1
+            ReDim Preserve hits(1 To n)
+            hits(n) = i
+        End If
+    Next i
+    If n = 0 Then
+        Note sheetName, tableName, "No row for '" & keyText & "'; nothing to delete"
+        Exit Sub
+    End If
+    Note sheetName, tableName & " -" & n & " row(s)", "Delete the row for '" & keyText & "' (no other SKU uses it)"
+    If dryRun Then Exit Sub
+    Set saved = ClearTableFilters(lo)
+    For i = n To 1 Step -1
+        lo.ListRows(hits(i)).Delete
+    Next i
+    RestoreTableFilters lo, saved
+End Sub
+
+' The SKU's report F-Group (Table1 Update F-Group) and whether another SKU has it too.
+Private Sub UpdFgOf(ByVal code As Double, ByRef fg As String, ByRef shared As Boolean)
+    Dim lo As ListObject, p As Variant, g As Variant, i As Long
+    fg = "": shared = False
+    On Error Resume Next
+    Set lo = Sh("Consolidation RAW").ListObjects("Table1")
+    p = lo.ListColumns("product code").DataBodyRange.Value
+    g = lo.ListColumns("Update F-Group").DataBodyRange.Value
+    On Error GoTo 0
+    If IsEmpty(p) Or IsEmpty(g) Then Exit Sub
+    For i = 1 To UBound(p, 1)
+        If IsKey(p(i, 1), code) And fg = "" Then
+            If Not IsError(g(i, 1)) Then fg = Trim$(CStr(g(i, 1)))
+        End If
+    Next i
+    If fg = "" Then Exit Sub
+    For i = 1 To UBound(p, 1)
+        If HasValue(p(i, 1)) And Not IsKey(p(i, 1), code) Then
+            If IsText(g(i, 1), fg) Then
+                shared = True
+                Exit Sub
+            End If
+        End If
+    Next i
+End Sub
+
 Private Sub Del_ByQuarter()
     Dim q As Worksheet, a As Variant, i As Long, n As Long, hits() As Long
     Set q = Sh("2027_by Quarter")
@@ -1854,11 +2031,38 @@ Private Sub Chg_MasterOnly()
     If cRow = 0 Then Exit Sub
     If cShortNew <> "" Then
         Note w.Name, "E" & cRow, "Short description: " & CStr(w.Cells(cRow, 5).Value) & "  ->  " & cShortNew
+        Chg_ShortRow Trim$(CStr(w.Cells(cRow, 5).Value))
         If Not dryRun Then w.Cells(cRow, 5).Value = cShortNew
     End If
     If c1CNew <> "" Then
         Note w.Name, "Z" & cRow, "1C description: " & CStr(w.Cells(cRow, 26).Value) & "  ->  " & c1CNew
         If Not dryRun Then w.Cells(cRow, 26).Value = c1CNew
+    End If
+End Sub
+
+' 2027 M vs M-1 (Table12) has one typed row per short description: rename it when only this SKU uses it.
+Private Sub Chg_ShortRow(ByVal oldShort As String)
+    Dim w As Worksheet, lo As ListObject, a As Variant, i As Long, hit As Long, hasNew As Boolean
+    Set w = Sh("2027 M vs M-1")
+    If w Is Nothing Or oldShort = "" Then Exit Sub
+    On Error Resume Next
+    Set lo = w.ListObjects("Table12")
+    On Error GoTo 0
+    If lo Is Nothing Then Exit Sub
+    a = lo.ListColumns(3).DataBodyRange.Value
+    For i = 1 To UBound(a, 1)
+        If IsText(a(i, 1), oldShort) Then hit = i
+        If IsText(a(i, 1), cShortNew) Then hasNew = True
+    Next i
+    If hasNew Then
+        Note w.Name, "Table12", "Already has a row for '" & cShortNew & "'"
+    ElseIf hit = 0 Then
+        Warn w.Name, "Table12 has no row for '" & cShortNew & "'. Add one in the right category section by hand."
+    ElseIf OtherRowWithText(Sh("SKU mapping-Pricing"), 5, oldShort, cRow) > 0 Then
+        Warn w.Name, "Table12 row '" & oldShort & "' stays for the other SKUs that share it. Add a row for '" & cShortNew & "' in the same section by hand."
+    Else
+        Note w.Name, "Table12 row " & (lo.HeaderRowRange.Row + hit), "'" & oldShort & "'  ->  '" & cShortNew & "'"
+        If Not dryRun Then lo.DataBodyRange.Cells(hit, 3).Value = cShortNew
     End If
 End Sub
 
@@ -2075,17 +2279,20 @@ Private Sub BuildForm(f As Worksheet)
     AddButton f, f.Range("L1:M2"), "Widen lookup ranges (one time)", "NewSKU_WidenLookupRanges"
 End Sub
 
-Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
-    Dim r As Long, items As Collection, it As Variant, imsCol As String
+' Writes the checklist from row r0 and returns its last row.
+Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
+    Dim r As Long, items As Collection, it As Variant, imsCol As String, lim As Long
     Set items = New Collection
+    lim = PriceLimit()
     ' label | found formula | expected formula | note
     items.Add Array("SKU mapping-Pricing", "=COUNTIF('SKU mapping-Pricing'!$B:$B,$E$5)", "1", "")
-    items.Add Array("Price Chnge 2026 (rows 6-55)", "=COUNTIF('Price Chnge'!$A$6:$A$55,$E$5)", "1", "")
-    items.Add Array("Price Chnge 2027 (rows 58+)", "=COUNTIF('Price Chnge'!$A$58:$A$400,$E$5)", "1", "")
+    items.Add Array("Price Chnge 2026 (rows 6-" & lim & ")", "=COUNTIF('Price Chnge'!$A$6:$A$" & lim & ",$E$5)", "1", "")
+    items.Add Array("Price Chnge 2027 (rows " & (lim + 3) & "+)", "=COUNTIF('Price Chnge'!$A$" & (lim + 3) & ":$A$400,$E$5)", "1", "")
     items.Add Array("BDA Allowance Assist", "=COUNTIF('BDA Allowance Assist'!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("BDA Allowance Assist Y+1", "=COUNTIF('BDA Allowance Assist Y+1'!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("Distribution by Month", "=COUNTIF('Distribution by Month'!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("Distribution by Month Y+1", "=COUNTIF('Distribution by Month Y+1'!$C$4:$C$500,$E$5)", "1", "")
+    items.Add Array("Commission by Month (Distribution row)", "=IFERROR(--(MATCH($E$5,'Commission by Month'!$C:$C,0)=MATCH($E$5,'Distribution by Month'!$C:$C,0)),0)", "1", "Table1 reads commission on the Distribution by Month row")
     items.Add Array("FCST", "=COUNTIF(FCST!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("FCST Y+1", "=COUNTIF('FCST Y+1'!$C$4:$C$500,$E$5)", "1", "")
     If ReadImsLayout(Sh("IMS Stock")) Then imsCol = ColL(imsCode) Else imsCol = "C"
@@ -2101,16 +2308,17 @@ Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
     items.Add Array("Target Split shares add up to 100%", "=SUMIF('Target Split'!$F:$F,$E$5,'Target Split'!$H:$H)", "1", "")
     items.Add Array("Target Split Y+1 (2 customers)", "=COUNTIF('Target Split Y+1'!$F:$F,$E$5)", "2", "")
     items.Add Array("Target Split Y+1 shares add up to 100%", "=SUMIF('Target Split Y+1'!$F:$F,$E$5,'Target Split Y+1'!$H:$H)", "1", "")
-    items.Add Array("Consolidation RAW (Table1) rows", "=COUNTIF('Consolidation RAW'!$P:$P,$E$5)", "=COUNTIF('Consolidation RAW'!$P:$P,$E$6)", "Same number of rows as the template SKU")
-    items.Add Array("Y+1 (Table19) rows", "=COUNTIF('Y+1'!$P:$P,$E$5)", "=COUNTIF('Y+1'!$P:$P,$E$6)", "Same number of rows as the template SKU")
+    items.Add Array("Consolidation RAW (Table1) rows", "=COUNTIF('Consolidation RAW'!$P:$P,$E$5)", "=COUNTIFS('Consolidation RAW'!$P:$P,$E$6,'Consolidation RAW'!$A:$A,""M"")", "Same as the template SKU's M rows (no M-1 for a new SKU)")
+    items.Add Array("Y+1 (Table19) rows", "=COUNTIF('Y+1'!$P:$P,$E$5)", "=COUNTIFS('Y+1'!$P:$P,$E$6,'Y+1'!$A:$A,""M"")", "Same as the template SKU's M rows (no M-1 for a new SKU)")
     items.Add Array("Errors in this SKU's Table1 rows", "=SUMPRODUCT(('Consolidation RAW'!$P$4:$P$5000=$E$5)*ISERROR('Consolidation RAW'!$R$4:$AN$5000))", "0", "A lookup does not reach the new row: run Widen lookup ranges")
     items.Add Array("Errors in this SKU's Table19 rows", "=SUMPRODUCT(('Y+1'!$P$4:$P$5000=$E$5)*ISERROR('Y+1'!$R$4:$AN$5000))", "0", "A lookup does not reach the new row: run Widen lookup ranges")
     items.Add Array("Y+1 Active flag", "=SUMIF('Y+1'!$P:$P,$E$5,'Y+1'!$AP:$AP)", "=COUNTIF('Y+1'!$P:$P,$E$5)", "0 means the Active lookup stops at row 25: run Widen lookup ranges")
     items.Add Array("2027_Comparision data block (W:AH)", "=COUNTIF('2027_Comparision'!$AC$16:$AC$5000,$E$7)", "=COUNTIF('2027_Comparision'!$AC$16:$AC$5000,$D$6)", "Same number of month rows as the template SKU")
     items.Add Array("2027_by Quarter helper rows", "=COUNTIF('2027_by Quarter'!$AJ$10:$AJ$5000,$E$7)", "=COUNTIF('2027_by Quarter'!$AJ$10:$AJ$5000,$D$6)", "")
     items.Add Array("2027_Comparision table", "=COUNTIF('2027_Comparision'!$C$16:$C$300,$E$7)", "1", "")
-    items.Add Array("Ramadan table", "=COUNTIF(Ramadan!$C$16:$C$300,$E$7)", "1", "")
     items.Add Array("2027 VS ICP table", "=COUNTIF('2027 VS ICP'!$C$16:$C$300,$E$7)", "1", "")
+    items.Add Array("2027 M vs M-1 table (short description)", "=COUNTIF('2027 M vs M-1'!$C$20:$C$300,$E$8)", "1", "One row per short description")
+    items.Add Array("Gap OL table (report F-Group)", "=COUNTIF('Gap OL'!$C$13:$C$300,$E$15)", "1", "One row per Update F-Group")
     items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "Appears once the pivots are refreshed")
     items.Add Array("2026 DF report (after refresh)", "=COUNTIF('2026 DF , NNS ,Tons,Cases '!$C:$C,$E$5)", "3", "Three pivots: NNS, Tons, Cases")
     items.Add Array("2027 OL report (after refresh)", "=COUNTIF('2027 OL'!$C:$C,$E$5)", "3", "Hidden if the SKU Status slicer on 2027 OL does not include this Status")
@@ -2132,7 +2340,8 @@ Private Sub BuildChecks(f As Worksheet, ByVal r0 As Long)
         .FormatConditions.Add(xlCellValue, xlEqual, "=""OK""").Interior.Color = RGB(198, 239, 206)
         .FormatConditions.Add(xlCellValue, xlNotEqual, "=""OK""").Interior.Color = RGB(255, 199, 206)
     End With
-End Sub
+    BuildChecks = r - 1
+End Function
 
 Private Sub Field(f As Worksheet, ByVal r As Long, ByVal nm As String, ByVal label As String, _
                   ByVal tplFormula As String, ByVal useFormula As String, ByVal note As String)
