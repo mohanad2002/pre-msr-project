@@ -1463,9 +1463,9 @@ Private Sub Del_SharedRow(ByVal sheetName As String, ByVal tableName As String, 
 End Sub
 
 ' The SKU's report F-Group (Table1 Update F-Group) and whether another SKU has it too.
-Private Sub UpdFgOf(ByVal code As Double, ByRef fg As String, ByRef shared As Boolean)
+Private Sub UpdFgOf(ByVal code As Double, ByRef fg As String, ByRef isShared As Boolean)
     Dim lo As ListObject, p As Variant, g As Variant, i As Long
-    fg = "": shared = False
+    fg = "": isShared = False
     On Error Resume Next
     Set lo = Sh("Consolidation RAW").ListObjects("Table1")
     p = lo.ListColumns("product code").DataBodyRange.Value
@@ -1481,7 +1481,7 @@ Private Sub UpdFgOf(ByVal code As Double, ByRef fg As String, ByRef shared As Bo
     For i = 1 To UBound(p, 1)
         If HasValue(p(i, 1)) And Not IsKey(p(i, 1), code) Then
             If IsText(g(i, 1), fg) Then
-                shared = True
+                isShared = True
                 Exit Sub
             End If
         End If
