@@ -31,6 +31,9 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 Option Explicit
 
+' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
+Public Const NEWSKU_VERSION As String = "2026-11-19 c (isShared fix)"
+
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
 Private Const SD_NAME As String = "Sub-Distributor"
@@ -1423,7 +1426,6 @@ Private Sub Del_TableRows(ByVal sheetName As String, ByVal tableName As String, 
     RestoreTableFilters lo, saved
 End Sub
 
-' 2027_by Quarter AD:AN links row by row to the 2027_Comparision block; remove its rows first.
 ' Report rows shared by several SKUs (one per short description or report F-Group):
 ' removed only when no other SKU still uses them.
 Private Sub Del_SharedRow(ByVal sheetName As String, ByVal tableName As String, ByVal keyCol As Long, _
@@ -1488,6 +1490,7 @@ Private Sub UpdFgOf(ByVal code As Double, ByRef fg As String, ByRef isShared As 
     Next i
 End Sub
 
+' 2027_by Quarter AD:AN links row by row to the 2027_Comparision block; remove its rows first.
 Private Sub Del_ByQuarter()
     Dim q As Worksheet, a As Variant, i As Long, n As Long, hits() As Long
     Set q = Sh("2027_by Quarter")
