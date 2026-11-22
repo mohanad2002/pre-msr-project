@@ -20,8 +20,27 @@ Checked against `Pre-MSR  Nov - BSE1-Enhance -Add Kitkat-Monaf 2.xlsm` (November
 
 It also deleted Ramadan.
 
-1. In the VBA editor, remove the old NewSKU module and import the new `spec/NewSKU.bas`. Run Debug > Compile VBAProject.
-2. Run `Setup_RefreshNewSKUSheet` (Alt+F8). It rebuilds the checklist (rows 56–93) for the current sheets and adds the Delete / Change boxes if they are missing. What you typed in the form stays.
+`Pre-MSR  Nov - BSE2-Mosaic Submission.xlsm` (version 2026-11-22 d) brought:
+- a new Status value, **IR**;
+- TTS `Table4` now reads its pivot list (AA:AB) by position, as Monthly Gap `Table612` does (CD:CE).
+
+Those two tables now follow their pivots after every refresh (see [Report tables that follow a pivot](#report-tables-that-follow-a-pivot)).
+
+1. In the VBA editor, remove the old NewSKU module and import the new `spec/NewSKU.bas`. Check the `' VERSION` line at the top, then run Debug > Compile VBAProject.
+2. Run `Setup_RefreshNewSKUSheet` (Alt+F8). It rebuilds the checklist (rows 56–93) for the current sheets, updates the Status note, adds the **Match report tables to pivots** button (O1:P2) and adds the Delete / Change boxes if they are missing. What you typed in the form stays.
+3. Click **Match report tables to pivots** once (or run `NewSKU_SyncReportTables`) to repair the tables as they are today.
+
+## Report tables that follow a pivot
+
+Monthly Gap `Table612` and TTS `Table4` read a pivot's row list by position: table row 1 reads pivot row 1, and so on. They need exactly one table row per pivot row. The pivot lists also keep SKUs that only have last month's (M-1) rows, so the count cannot be worked out from the SKUs added or deleted.
+
+After the pivots refresh, Add SKU and Delete SKU (and the **Match report tables to pivots** button) therefore:
+1. find the table's link columns (first row is a plain link such as `=CD35`);
+2. count the pivot list down to the first blank, "(blank)" or "Grand Total";
+3. add or remove table rows to match;
+4. set every link to the first row's pattern, so row n reads list row n.
+
+The preview shows the counts without changing anything.
 
 ## Install (once)
 
@@ -64,7 +83,7 @@ What it removes:
 - the Commission by Month row (same row number as Distribution by Month);
 - the report rows in 2027_Comparision and 2027 VS ICP;
 - the 2027 M vs M-1 row for its short description and the Gap OL row for its report F-Group, but only when no other SKU still uses them (the preview says which);
-- one Monthly Gap table row.
+- (after the refresh) Monthly Gap and TTS tables are matched to their pivot lists.
 
 The order keeps the row-by-row links intact:
 - Distribution by Month and Commission by Month go before BDA, and BDA before SKU mapping-Pricing.
@@ -126,7 +145,7 @@ Not changed:
 | F-Group ID | E7J | SKU mapping F, Table1/Table19 Fgroup Code |
 | F-Group | Nido 1+ | SKU mapping G, BDA B, Target Split E, Table1/Table19 FGROUP_DESC |
 | Update F-Group | Nido 1+ | Table1/Table19, 2027 report tables and data block; Gap OL `Table6` row, added when the F-Group is new |
-| Status / Active | Current / 1 | SKU mapping M / N |
+| Status / Active | Current / 1 | SKU mapping M / N. Status is Current, New or IR. The Status slicers on 2027 OL and the 2027 reports show Current and IR in the BSE2 file, so a New SKU stays hidden there until its status changes (Preview warns) |
 | **Tons per case** | 0.0108 | SKU mapping P, IMS Stock "Format" column. Drives every tons figure |
 | 1C / Arabic description | | SKU mapping Z / AA |
 | IMS Stock label | | IMS Stock "SKU" column |
@@ -166,7 +185,8 @@ The macro does not ask for monthly price-change % (Price Chnge), monthly distrib
 | 2027_Comparision `Table20`, 2027 VS ICP `Table2011` | 1 each | Row inside the category section, so the "Total Dairy" subtotal includes it |
 | 2027 M vs M-1 `Table12` | 1 per short description | Category / F-Group / short description; sums its pivot (X:AI) by short description. Shared by SKUs with the same short description |
 | Gap OL `Table6` | 1 per report F-Group | Category / Update F-Group, inside the category section. Shared by the SKUs of that F-Group |
-| Monthly Gap `Table612` | 1 | Reads the pivot list in CD:CE by position, so one more SKU needs one more table row |
+| Monthly Gap `Table612` | 1 per pivot row | Reads the pivot list in CD:CE by position. Matched to the list after each refresh |
+| TTS `Table4` | 1 per F-Group pivot row | Reads the pivot list in AA:AB by position. Matched to the list after each refresh, so a new F-Group gets its row |
 | CYvsNY `Table9` | 2 | 2026 and 2027 rows; has room for 41 SKUs (39 after the next one) |
 
 ### Sheets that update by themselves
@@ -176,7 +196,7 @@ The macro does not ask for monthly price-change % (Price Chnge), monthly distrib
 
 ### Not done by the macro
 
-- **A new F-Group:** TTS and 2027 TTS have one row per F-Group. A SKU in a new F-Group needs rows there by hand (Gap OL's table is now added by the macro). Preview warns when the F-Group differs from the template's.
+- **A new F-Group:** 2027 TTS is pivots only and updates on refresh; TTS `Table4` and Gap OL's table are handled by the macro. Preview warns when the F-Group differs from the template's.
 - **The Fico Assist top block and For-Fico** (pasted values), **2027 check** columns K:AA and **Sales vs Activity 2027**. Update these by hand if you use them; nothing else reads them.
 
 ## Link problems found
@@ -197,7 +217,7 @@ These exist today, before any new SKU is added. `NewSKU_WidenLookupRanges` fixes
    - SKU mapping-Pricing → BDA (row + 2) → Distribution by Month and Commission by Month (same row).
    - Price Chnge 2026 → 2027 (+56 rows).
    - 2027_Comparision → 2027_by Quarter (−6 rows).
-   - The Monthly Gap pivot list → Table612 (+3 rows).
+   - The Monthly Gap pivot list → Table612 (+3 rows), and the TTS pivot list → Table4 (+3 rows). Both are matched after each refresh.
 
    Adding at the end of each list keeps them aligned. Inserting in the middle of only one of these sheets breaks the link silently, and nothing shows an error. The macro adds at the end, links BDA C:D to the master row explicitly, and warns if the rows do not line up.
 6. **Codes stored as text in some places.** IMS Stock's "code" column (C since the F-Group column was added) and the Fayrouz sheets' column A hold the code as text, and the arrivals lookup matches text. Elsewhere the code is a number. Typing the code as a number there makes arrivals show 0. The macro writes text there.

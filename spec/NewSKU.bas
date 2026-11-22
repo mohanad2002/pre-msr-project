@@ -2,7 +2,7 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
-' VERSION 2026-11-19 c (isShared fix)
+' VERSION 2026-11-22 d (report tables follow their pivots; Status IR)
 '
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
@@ -21,6 +21,8 @@ Attribute VB_Name = "NewSKU"
 '   Setup_ChangeSKU_Section   Adds the Change a SKU box to an existing New SKU sheet.
 '   Setup_RefreshNewSKUSheet  Brings an existing New SKU sheet up to date (checklist,
 '                             Delete and Change boxes) without clearing your inputs.
+'   NewSKU_SyncReportTables   Matches Monthly Gap Table612 and TTS Table4 to their pivot
+'                             lists (one row per pivot row). Add / Delete run it too.
 '
 ' How it works: every sheet that keeps one row (or block of rows) per SKU gets
 ' a copy of the rows of a "template" SKU that you name, normally a SKU in the
@@ -34,7 +36,7 @@ Attribute VB_Name = "NewSKU"
 Option Explicit
 
 ' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
-Public Const NEWSKU_VERSION As String = "2026-11-19 c (isShared fix)"
+Public Const NEWSKU_VERSION As String = "2026-11-22 d (report tables follow their pivots; Status IR)"
 
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
@@ -277,6 +279,11 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     If Not isDry And sRefresh Then
         stepName = "refresh pivots"
         RefreshPivots
+    End If
+    If isDry Or sRefresh Then
+        stepName = "report tables": SyncPivotLists
+    Else
+        Warn "Pivots", "Not refreshed. Refresh them, then run NewSKU_SyncReportTables so Monthly Gap and TTS get a row for the new SKU."
     End If
 
     Application.Calculation = calcMode
@@ -1076,19 +1083,10 @@ Private Sub Step_Commission()
 End Sub
 
 ' Monthly Gap Table612 reads the pivot list in CD:CE row by row; one more SKU needs one more row.
+' Monthly Gap Table612 reads its pivot list by position. Its rows are matched to that list after the
+' refresh (SyncPivotLists), because the list also keeps SKUs that only have last month's (M-1) rows.
 Private Sub Step_MonthlyGap()
-    Dim lo As ListObject, nr As ListRow, saved As Collection
-    Set lo = Sh("Monthly Gap").ListObjects("Table612")
-    If Not RowBelowEmpty(lo) Then
-        Problem "Monthly Gap", "The row under Table612 is not empty; add one table row by hand."
-        Exit Sub
-    End If
-    Note "Monthly Gap", "Table612 +1 row", "One more SKU row (reads the pivot list in CD:CE after refresh)"
-    If dryRun Then Exit Sub
-    Set saved = ClearTableFilters(lo)
-    Set nr = lo.ListRows.Add(AlwaysInsert:=False)
-    CopyCells lo.ListRows(lo.ListRows.Count - 1).Range, nr.Range
-    RestoreTableFilters lo, saved
+    Note "Monthly Gap", "Table612", "Matched to its pivot list (CD:CE) after the pivots refresh"
 End Sub
 
 ' CYvsNY Table9 has two rows (2026, 2027) per SKU, read from the pivot in AK:AN.
@@ -1149,6 +1147,8 @@ Public Sub Setup_RefreshNewSKUSheet()
         MsgBox "The checklist now ends on row " & used & " and runs into the Delete a SKU box. Run Setup_NewSKU_Sheet to rebuild the sheet.", vbExclamation, "New SKU"
     End If
     If Not NameExists("NS_DelCode") Then BuildDeleteSection f, used + 3
+    If f.Range("B16").Value = "Status" Then f.Range("F16").Value = "Current, New or IR. The Status slicers (2027 OL, 2027 reports) decide which show; Preview warns if this one is hidden."
+    If Not HasButton(f, "NewSKU_SyncReportTables") Then AddButton f, f.Range("O1:P2"), "Match report tables to pivots", "NewSKU_SyncReportTables"
     If Not NameExists("NS_ChgCode") Then BuildChangeSection f, f.Cells(f.Rows.Count, 2).End(xlUp).Row + 3
     f.Activate
     MsgBox "The New SKU sheet is up to date. Checklist: rows 56-" & used & ".", vbInformation, "New SKU"
@@ -1273,6 +1273,11 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" Then
         stepName = "refresh pivots"
         RefreshPivots
+        stepName = "report tables": SyncPivotLists
+    ElseIf isDry Then
+        SyncPivotLists
+    Else
+        Warn "Pivots", "Not refreshed. Refresh them, then run NewSKU_SyncReportTables."
     End If
     Application.EnableEvents = True
     Application.ScreenUpdating = True
@@ -1553,13 +1558,113 @@ End Sub
 
 ' Table612 reads the pivot list by position; one SKU fewer needs one row fewer.
 Private Sub Del_MonthlyGap()
-    Dim lo As ListObject, saved As Collection
-    Set lo = Sh("Monthly Gap").ListObjects("Table612")
-    If lo.ListRows.Count < 2 Then Exit Sub
-    Note "Monthly Gap", "Table612 -1 row", "Remove the last SKU row (the pivot list is one SKU shorter after refresh)"
-    If dryRun Then Exit Sub
-    Set saved = ClearTableFilters(lo)           ' the category buttons filter this table
-    lo.ListRows(lo.ListRows.Count).Delete
+    Note "Monthly Gap", "Table612", "Matched to its pivot list (CD:CE) after the pivots refresh"
+End Sub
+
+'==============================================================================
+' Report tables that read a pivot's row list by position
+'==============================================================================
+
+' Monthly Gap Table612 (pivot list CD:CE) and TTS Table4 (AA:AB): one table row per pivot row.
+' Saves a backup, then adds or removes table rows and repairs the position links.
+Public Sub NewSKU_SyncReportTables()
+    If Sh(FORM_NAME) Is Nothing Then
+        MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "New SKU"
+        Exit Sub
+    End If
+    dryRun = False
+    PrepareLog "Report tables matched to their pivot lists on " & Format(Now, "dd mmm yyyy hh:nn")
+    If Not SaveBackup("before matching report tables") Then
+        If MsgBox("The backup copy could not be saved. Continue without a backup?", vbYesNo + vbExclamation, "New SKU") <> vbYes Then Exit Sub
+    End If
+    Application.ScreenUpdating = False
+    SyncPivotLists
+    Application.ScreenUpdating = True
+    Sh(FORM_NAME).Activate
+    MsgBox "Done: " & nWarnings & " point(s) to check. The changes are listed in column L." & vbLf & _
+           "Refresh the pivots first if SKUs were added or deleted by hand.", vbInformation, "New SKU"
+End Sub
+
+Private Sub SyncPivotLists()
+    SyncPivotList "Monthly Gap", "Table612"
+    SyncPivotList "TTS", "Table4"
+End Sub
+
+' The table's position columns are those whose first row is a plain link to one cell (=CD35):
+' that cell is the top of the pivot list. The list runs down to the first blank, "(blank)" or
+' "Grand Total". The table gets one row per list row, and every position column is set to the
+' first row's pattern, so row n reads list row n.
+Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
+    Dim w As Worksheet, lo As ListObject, top As Range, src As Range, nr As ListRow, saved As Collection
+    Dim c As Long, i As Long, need As Long, have As Long, nFix As Long, fml As String, v As Variant
+    Dim posCols As New Collection, pc As Variant
+    Set w = Sh(sheetName)
+    If w Is Nothing Then Exit Sub
+    On Error Resume Next
+    Set lo = w.ListObjects(tableName)
+    On Error GoTo 0
+    If lo Is Nothing Then Exit Sub
+    If lo.DataBodyRange Is Nothing Then Exit Sub
+    For c = 1 To lo.ListColumns.Count
+        fml = lo.DataBodyRange.Cells(1, c).Formula
+        If Left$(fml, 1) = "=" And InStr(fml, "!") = 0 And InStr(fml, "(") = 0 And InStr(fml, "[") = 0 Then
+            Set src = Nothing
+            On Error Resume Next
+            Set src = w.Range(Mid$(fml, 2))
+            On Error GoTo 0
+            If Not src Is Nothing Then
+                If src.Cells.Count = 1 Then
+                    posCols.Add c
+                    If top Is Nothing Then Set top = src
+                End If
+            End If
+        End If
+    Next c
+    If top Is Nothing Then
+        Warn sheetName, tableName & ": no column links to a pivot list, so its rows were not checked."
+        Exit Sub
+    End If
+    Do
+        v = top.Offset(need, 0).Value
+        If IsError(v) Then Exit Do
+        If Trim$(CStr(v)) = "" Or CStr(v) = "(blank)" Or LCase$(Left$(CStr(v), 11)) = "grand total" Then Exit Do
+        need = need + 1
+    Loop While need < 2000
+    have = lo.ListRows.Count
+    For i = 2 To have
+        For Each pc In posCols
+            If lo.DataBodyRange.Cells(i, pc).FormulaR1C1 <> lo.DataBodyRange.Cells(1, pc).FormulaR1C1 Then nFix = nFix + 1
+        Next pc
+    Next i
+    If need = have And nFix = 0 Then
+        Note sheetName, tableName, have & " rows for " & need & " pivot rows (from " & top.Address(False, False) & "): OK"
+        Exit Sub
+    End If
+    Note sheetName, tableName, have & " rows for " & need & " pivot rows (from " & top.Address(False, False) & ")" & _
+         IIf(need > have, ": add " & (need - have), IIf(need < have, ": remove " & (have - need), "")) & _
+         IIf(nFix > 0, "; repair " & nFix & " position link(s)", "")
+    If dryRun Or need = 0 Then Exit Sub
+    If need > have And Not lo.ShowTotals Then
+        If Not RowBelowEmpty(lo) Then
+            Warn sheetName, "The row under " & tableName & " is not empty; add " & (need - have) & " table row(s) by hand."
+            Exit Sub
+        End If
+    End If
+    Set saved = ClearTableFilters(lo)
+    Do While lo.ListRows.Count < need
+        Set nr = lo.ListRows.Add(AlwaysInsert:=False)
+        CopyCells lo.ListRows(lo.ListRows.Count - 1).Range, nr.Range
+    Loop
+    Do While lo.ListRows.Count > need
+        lo.ListRows(lo.ListRows.Count).Delete
+    Loop
+    For i = 2 To lo.ListRows.Count
+        For Each pc In posCols
+            With lo.DataBodyRange.Cells(i, pc)
+                If .FormulaR1C1 <> lo.DataBodyRange.Cells(1, pc).FormulaR1C1 Then .FormulaR1C1 = lo.DataBodyRange.Cells(1, pc).FormulaR1C1
+            End With
+        Next pc
+    Next i
     RestoreTableFilters lo, saved
 End Sub
 
@@ -2188,7 +2293,7 @@ Private Sub BuildForm(f As Worksheet)
     Field f, 13, "NS_FGroupID", "F-Group ID", TplMaster("F"), "", "For example E7J."
     Field f, 14, "NS_FGroup", "F-Group", TplMaster("G"), "", ""
     Field f, 15, "NS_UpdFGroup", "Update F-Group (report group)", "=IFERROR(INDEX('Consolidation RAW'!$M:$M,MATCH($C$6,'Consolidation RAW'!$P:$P,0)),"""")", "", "Used by Table1 / Table19 and the 2027 reports."
-    Field f, 16, "NS_Status", "Status", TplMaster("M"), "", "Current or New. 2027 OL shows only Current SKUs (SKU Status slicer)."
+    Field f, 16, "NS_Status", "Status", TplMaster("M"), "", "Current, New or IR. The Status slicers (2027 OL, 2027 reports) decide which show; Preview warns if this one is hidden."
     Field f, 17, "NS_Active", "Active", "=1", "", "1 = active, 0 = not active."
     Field f, 18, "NS_Format", "Tons per case", TplMaster("P"), "=C18", "Units x grams / 1,000,000. 12 x 900 g = 0.0108. Must be typed."
     Field f, 19, "NS_1C", "1C description", "=C7", "", "SKU mapping-Pricing column Z."
@@ -2282,6 +2387,7 @@ Private Sub BuildForm(f As Worksheet)
     AddButton f, f.Range("G1:H2"), "Preview", "NewSKU_Preview"
     AddButton f, f.Range("I1:J2"), "Add SKU", "NewSKU_Add"
     AddButton f, f.Range("L1:M2"), "Widen lookup ranges (one time)", "NewSKU_WidenLookupRanges"
+    AddButton f, f.Range("O1:P2"), "Match report tables to pivots", "NewSKU_SyncReportTables"
 End Sub
 
 ' Writes the checklist from row r0 and returns its last row.
@@ -2324,7 +2430,7 @@ Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
     items.Add Array("2027 VS ICP table", "=COUNTIF('2027 VS ICP'!$C$16:$C$300,$E$7)", "1", "")
     items.Add Array("2027 M vs M-1 table (short description)", "=COUNTIF('2027 M vs M-1'!$C$20:$C$300,$E$8)", "1", "One row per short description")
     items.Add Array("Gap OL table (report F-Group)", "=COUNTIF('Gap OL'!$C$13:$C$300,$E$15)", "1", "One row per Update F-Group")
-    items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "Appears once the pivots are refreshed")
+    items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "After refresh; Add / Delete match the table to its pivot list")
     items.Add Array("2026 DF report (after refresh)", "=COUNTIF('2026 DF , NNS ,Tons,Cases '!$C:$C,$E$5)", "3", "Three pivots: NNS, Tons, Cases")
     items.Add Array("2027 OL report (after refresh)", "=COUNTIF('2027 OL'!$C:$C,$E$5)", "3", "Hidden if the SKU Status slicer on 2027 OL does not include this Status")
     items.Add Array("CYvsNY (after refresh)", "=IF($E$10="""",0,COUNTIF(CYvsNY!$E:$E,$E$10))", "2", "Needs the Mosaic product code")
@@ -2408,6 +2514,16 @@ Private Sub AddList(rng As Range, ByVal listFormula As String)
         .InCellDropdown = True
     End With
 End Sub
+
+Private Function HasButton(f As Worksheet, ByVal macroName As String) As Boolean
+    Dim b As Object
+    For Each b In f.Buttons
+        If InStr(1, b.OnAction, macroName, vbTextCompare) > 0 Then
+            HasButton = True
+            Exit Function
+        End If
+    Next b
+End Function
 
 Private Sub AddButton(f As Worksheet, where As Range, ByVal caption As String, ByVal macroName As String)
     Dim b As Object
