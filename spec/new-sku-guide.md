@@ -43,7 +43,15 @@ Since version 2026-11-26 f:
 - **Preview** lists every pivot with fewer than 2 free rows below it ("Pivot room" lines).
 - After the refresh, **Add / Delete / Change** check that each Table1 / Table19 pivot cache holds all the table's rows. If not, they report "Pivots NOT refreshed" as a problem and skip the report-table matching. Matching against out-of-date pivots would give wrong rows.
 
-Fix: insert empty rows under the pivot that is out of room (10–20 rows each on 2026 DF, above "Tons" and above "Case"), then click Refresh All and **Match report tables to pivots**.
+Fix: give each pivot its own room. In the November BSE2 file the Tons and Cases pivots were copied to their own sheets, **2026 DF ,Tons** (PivotTable2, A21) and **2026 DF ,Cases** (PivotTable5, A17).
+
+The original sheet still holds all three pivots, and its Tons pivot is still blocked by "Case" in A119, so the refresh still fails. Two ways to fix it:
+- Delete the Tons and Cases pivots (rows 63–171) from **2026 DF , NNS ,Tons,Cases**, keeping only the NNS pivot.
+- Or insert 10–20 empty rows above "Tons" and above "Case".
+
+If you delete them, repoint the NNS-per-case cells in column W from the old Cases pivot (`=S21/S130`) to the new sheet: `=S21/'2026 DF ,Cases'!S21` (same row number, because the new Cases pivot starts 109 rows higher).
+
+Then click Refresh All and **Match report tables to pivots**. The checklist line "2026 DF reports" counts the SKU on every sheet whose name starts with "2026 DF", and expects one row per pivot on those sheets.
 
 ## Report tables that follow a pivot
 

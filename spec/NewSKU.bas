@@ -2,7 +2,7 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
-' VERSION 2026-11-26 f (checks that the pivots really refreshed; pivot room)
+' VERSION 2026-11-27 g (2026 DF check covers the split DF sheets)
 '
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
@@ -36,7 +36,7 @@ Attribute VB_Name = "NewSKU"
 Option Explicit
 
 ' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
-Public Const NEWSKU_VERSION As String = "2026-11-26 f (checks that the pivots really refreshed; pivot room)"
+Public Const NEWSKU_VERSION As String = "2026-11-27 g (2026 DF check covers the split DF sheets)"
 
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
@@ -2409,7 +2409,7 @@ End Sub
 
 ' Writes the checklist from row r0 and returns its last row.
 Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
-    Dim r As Long, items As Collection, it As Variant, imsCol As String, lim As Long
+    Dim r As Long, items As Collection, it As Variant, imsCol As String, lim As Long, df As Variant
     Set items = New Collection
     lim = PriceLimit()
     ' label | found formula | expected formula | note
@@ -2448,7 +2448,8 @@ Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
     items.Add Array("2027 M vs M-1 table (short description)", "=COUNTIF('2027 M vs M-1'!$C$20:$C$300,$E$8)", "1", "One row per short description")
     items.Add Array("Gap OL table (report F-Group)", "=COUNTIF('Gap OL'!$C$13:$C$300,$E$15)", "1", "One row per Update F-Group")
     items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "After refresh; Add / Delete match the table to its pivot list")
-    items.Add Array("2026 DF report (after refresh)", "=COUNTIF('2026 DF , NNS ,Tons,Cases '!$C:$C,$E$5)", "3", "Three pivots: NNS, Tons, Cases")
+    df = DFCheck()
+    items.Add Array("2026 DF reports (after refresh)", df(0), df(1), df(2))
     items.Add Array("2027 OL report (after refresh)", "=COUNTIF('2027 OL'!$C:$C,$E$5)", "3", "Hidden if the SKU Status slicer on 2027 OL does not include this Status")
     items.Add Array("CYvsNY (after refresh)", "=IF($E$10="""",0,COUNTIF(CYvsNY!$E:$E,$E$10))", "2", "Needs the Mosaic product code")
 
@@ -2469,6 +2470,21 @@ Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
         .FormatConditions.Add(xlCellValue, xlNotEqual, "=""OK""").Interior.Color = RGB(255, 199, 206)
     End With
     BuildChecks = r - 1
+End Function
+
+' The 2026 DF pivots (NNS, Tons, Cases) on every sheet whose name starts with "2026 DF": since
+' November they sit on separate sheets. The SKU code shows once in column C of each pivot.
+Private Function DFCheck() As Variant
+    Dim w As Worksheet, fml As String, n As Long, where As String
+    For Each w In ThisWorkbook.Worksheets
+        If w.Name Like "2026 DF*" And w.PivotTables.Count > 0 Then
+            n = n + w.PivotTables.Count
+            fml = fml & IIf(fml = "", "=", "+") & "COUNTIF('" & Replace(w.Name, "'", "''") & "'!$C:$C,$E$5)"
+            where = where & IIf(where = "", "", ", ") & Trim$(w.Name) & " (" & w.PivotTables.Count & ")"
+        End If
+    Next w
+    If fml = "" Then fml = "=0"
+    DFCheck = Array(fml, CStr(n), "One row per pivot: " & where)
 End Function
 
 Private Sub Field(f As Worksheet, ByVal r As Long, ByVal nm As String, ByVal label As String, _
