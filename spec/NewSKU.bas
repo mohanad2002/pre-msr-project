@@ -2,7 +2,7 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
-' VERSION 2026-11-22 d (report tables follow their pivots; Status IR)
+' VERSION 2026-11-25 e (IMS Stock check compares with the template)
 '
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
@@ -36,7 +36,7 @@ Attribute VB_Name = "NewSKU"
 Option Explicit
 
 ' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
-Public Const NEWSKU_VERSION As String = "2026-11-22 d (report tables follow their pivots; Status IR)"
+Public Const NEWSKU_VERSION As String = "2026-11-25 e (IMS Stock check compares with the template)"
 
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
@@ -2407,7 +2407,7 @@ Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
     items.Add Array("FCST", "=COUNTIF(FCST!$C$4:$C$500,$E$5)", "1", "")
     items.Add Array("FCST Y+1", "=COUNTIF('FCST Y+1'!$C$4:$C$500,$E$5)", "1", "")
     If ReadImsLayout(Sh("IMS Stock")) Then imsCol = ColL(imsCode) Else imsCol = "C"
-    items.Add Array("IMS Stock (8-row block)", "=SUMPRODUCT(--('IMS Stock'!$" & imsCol & "$" & (imsHdr + 1) & ":$" & imsCol & "$5000&""""=$E$5&""""))", "8", "")
+    items.Add Array("IMS Stock block (code cells)", "=SUMPRODUCT(--('IMS Stock'!$" & imsCol & "$" & (imsHdr + 1) & ":$" & imsCol & "$5000&""""=$E$5&""""))", "=SUMPRODUCT(--('IMS Stock'!$" & imsCol & "$" & (imsHdr + 1) & ":$" & imsCol & "$5000&""""=$E$6&""""))", "Same as the template SKU's block (the Sales-C row has no code)")
     items.Add Array("Fayrouz-Arrival", "=SUMPRODUCT(--('Fayrouz-Arrival'!$E$3:$E$500&""""=$E$5&""""))", "1", "Feeds IMS Stock arrivals 2026")
     items.Add Array("Fayrouz-Arrival-2027", "=SUMPRODUCT(--('Fayrouz-Arrival-2027'!$E$3:$E$500&""""=$E$5&""""))", "1", "Feeds IMS Stock arrivals 2027")
     items.Add Array("Fayrouz Target", "=SUMPRODUCT(--('Fayrouz Target'!$D$3:$D$500&""""=$E$5&""""))", "1", "")
