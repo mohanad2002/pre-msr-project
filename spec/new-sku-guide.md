@@ -30,6 +30,21 @@ Those two tables now follow their pivots after every refresh (see [Report tables
 2. Run `Setup_RefreshNewSKUSheet` (Alt+F8). It rebuilds the checklist (rows 56–93) for the current sheets, updates the Status note, adds the **Match report tables to pivots** button (O1:P2) and adds the Delete / Change boxes if they are missing. What you typed in the form stays.
 3. Click **Match report tables to pivots** once (or run `NewSKU_SyncReportTables`) to repair the tables as they are today.
 
+## Pivot room (why a refresh can fail)
+
+Every pivot on Table1 or Table19 that lists SKUs grows by one row for each new SKU. If the row under a pivot holds anything, Excel cannot grow it. Excel then cancels the refresh of **every** pivot on that table, without an error the macro can catch. Examples are a title like "Case" or the filter cells of the next pivot.
+
+The November test add (code 2, NIDO Fiber 700g) hit exactly this:
+- On **2026 DF , NNS ,Tons,Cases**, PivotTable2 (A73:U118) ends right above the "Case" label in A119.
+- The Table1 pivots (2026 DF, Monthly Gap, Data Check, Gap OL, TTS ...) stayed at the old data, while the Table19 pivots refreshed.
+- PivotTable1 (A17:U61) has one free row before the "Tons" label in A63.
+
+Since version 2026-11-26 f:
+- **Preview** lists every pivot with fewer than 2 free rows below it ("Pivot room" lines).
+- After the refresh, **Add / Delete / Change** check that each Table1 / Table19 pivot cache holds all the table's rows. If not, they report "Pivots NOT refreshed" as a problem and skip the report-table matching. Matching against out-of-date pivots would give wrong rows.
+
+Fix: insert empty rows under the pivot that is out of room (10–20 rows each on 2026 DF, above "Tons" and above "Case"), then click Refresh All and **Match report tables to pivots**.
+
 ## Report tables that follow a pivot
 
 Monthly Gap `Table612` and TTS `Table4` read a pivot's row list by position: table row 1 reads pivot row 1, and so on. They need exactly one table row per pivot row. The pivot lists also keep SKUs that only have last month's (M-1) rows, so the count cannot be worked out from the SKUs added or deleted.

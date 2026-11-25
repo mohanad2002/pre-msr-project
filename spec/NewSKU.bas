@@ -2,7 +2,7 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
-' VERSION 2026-11-25 e (IMS Stock check compares with the template)
+' VERSION 2026-11-26 f (checks that the pivots really refreshed; pivot room)
 '
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
@@ -36,7 +36,7 @@ Attribute VB_Name = "NewSKU"
 Option Explicit
 
 ' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
-Public Const NEWSKU_VERSION As String = "2026-11-25 e (IMS Stock check compares with the template)"
+Public Const NEWSKU_VERSION As String = "2026-11-26 f (checks that the pivots really refreshed; pivot room)"
 
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
@@ -97,6 +97,7 @@ Private doDesc As Boolean, cDoUnified As Boolean, cDoRaw As Boolean
 Private nCodeCells As Long, nDescCells As Long, nFmlCells As Long
 Private nOldSales As Double, nNewSales As Double
 Private pivKeep As Collection                   ' pivot filter state of the old code / description
+Private pivFailed As Boolean                    ' the last refresh left pivots on Table1 / Table19 out of date
 
 ' ---- IMS Stock columns, read from its header row ----
 Private imsHdr As Long, imsCode As Long, imsLabel As Long, imsSku As Long
@@ -276,11 +277,14 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
 
     Application.Calculation = calcMode
     Application.Calculate
+    pivFailed = False
     If Not isDry And sRefresh Then
         stepName = "refresh pivots"
         RefreshPivots
     End If
-    If isDry Or sRefresh Then
+    If pivFailed Then
+        Warn "Monthly Gap / TTS", "Report tables not matched, because the pivots did not refresh. Fix the pivot room, Refresh All, then click Match report tables to pivots."
+    ElseIf isDry Or sRefresh Then
         stepName = "report tables": SyncPivotLists
     Else
         Warn "Pivots", "Not refreshed. Refresh them, then run NewSKU_SyncReportTables so Monthly Gap and TTS get a row for the new SKU."
@@ -295,8 +299,14 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
                "Nothing was changed. The planned rows are listed in column L.", _
                IIf(nProblems > 0, vbExclamation, vbInformation), "New SKU"
     Else
-        MsgBox "SKU " & Format(sCode, "0") & " added (" & nWarnings & " point(s) to check)." & vbLf & _
-               "Look at the checklist on the New SKU sheet: every line should say OK.", vbInformation, "New SKU"
+        If pivFailed Then
+            MsgBox "SKU " & Format(sCode, "0") & " added, but the PIVOTS DID NOT REFRESH." & vbLf & _
+                   "A pivot has no free row to grow into. Column L names it (PROBLEM and Pivot room lines)." & vbLf & _
+                   "Insert empty rows under it, click Refresh All, then Match report tables to pivots.", vbExclamation, "New SKU"
+        Else
+            MsgBox "SKU " & Format(sCode, "0") & " added (" & nWarnings & " point(s) to check)." & vbLf & _
+                   "Look at the checklist on the New SKU sheet: every line should say OK.", vbInformation, "New SKU"
+        End If
     End If
     Exit Sub
 
@@ -378,10 +388,11 @@ Private Sub Validate()
         If Abs(tot - 1) > 0.0005 Then Problem "New SKU", "The customer split for " & (2025 + i) & " adds up to " & Format(tot, "0.0%") & ", not 100%."
     Next i
     If r > 0 Then
-        If Not IsText(w.Cells(r, 7).Value, sFg) Then Warn "New SKU", "The F-Group differs from the template's. A new F-Group also needs rows in Gap OL, TTS and 2027 TTS (not done by this macro)."
+        If Not IsText(w.Cells(r, 7).Value, sFg) Then Warn "New SKU", "The F-Group differs from the template's. Gap OL and TTS get their rows from this macro; check them after the refresh."
     End If
     CheckRoom
     CheckSlicers
+    CheckPivotRoom
 End Sub
 
 ' Slicers on a status field can hide the new SKU from a report: the SKU Status slicer on
@@ -1052,7 +1063,7 @@ Private Sub Step_Commission()
     Set d = Sh("Distribution by Month")
     lastR = LastFilled(d, 3, 4, 2000)
     For c = 4 To lastR                              ' SKUs added before this step existed
-        If HasValue(d.Cells(c, 3).Value) Then
+        If HasValue(d.Cells(c, 3).Value) And c <> bdaRow(1) Then
             If Not IsKey(w.Cells(c, 3).Value, Num(d.Cells(c, 3).Value)) Then gaps = gaps & IIf(gaps = "", "", ", ") & c & " (" & CStr(d.Cells(c, 3).Value) & ")"
         End If
     Next c
@@ -1270,10 +1281,13 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
 
     Application.Calculation = calcMode
     Application.Calculate
+    pivFailed = False
     If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" Then
         stepName = "refresh pivots"
         RefreshPivots
-        stepName = "report tables": SyncPivotLists
+        If Not pivFailed Then
+            stepName = "report tables": SyncPivotLists
+        End If
     ElseIf isDry Then
         SyncPivotLists
     Else
@@ -1845,9 +1859,12 @@ Private Sub RunChangeSKU(ByVal isDry As Boolean)
     Application.Calculate
     If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" And (cNew > 0 Or doDesc) Then
         stepName = "refresh pivots"
+        pivFailed = False
         RefreshPivots
-        stepName = "pivot filters"
-        Chg_RestorePivots
+        If Not pivFailed Then
+            stepName = "pivot filters"
+            Chg_RestorePivots
+        End If
     ElseIf Not isDry And (cNew > 0 Or doDesc) Then
         Warn "Pivots", "Not refreshed (Refresh pivots = No). Refresh them, then check that the new code / description is ticked in filtered pivots."
     End If
@@ -2802,15 +2819,94 @@ Failed:
     Warn "Backup", "Could not save a backup copy: " & Err.Description
 End Function
 
+' Refreshes every pivot, then checks that each pivot cache built on a table (Table1, Table19) holds
+' all the table's rows. When one pivot has no room to grow, Excel cancels the refresh of its whole
+' cache, so every pivot on that table stays out of date without an error reaching the macro.
 Private Sub RefreshPivots()
+    Dim pc As PivotCache, lo As ListObject, n As Long, stale As String, errText As String, item As String
     On Error Resume Next
     Application.Run "'" & ThisWorkbook.Name & "'!Refresh_all"
     If Err.Number <> 0 Then
         Err.Clear
         ThisWorkbook.RefreshAll
+        If Err.Number <> 0 Then errText = LastErrorText()
     End If
     On Error GoTo 0
-    Note "Pivots", "", "Refreshed"
+    For Each pc In ThisWorkbook.PivotCaches
+        Set lo = Nothing
+        n = -1
+        On Error Resume Next
+        Set lo = TableNamed(CStr(pc.SourceData))
+        n = pc.RecordCount
+        On Error GoTo 0
+        If Not lo Is Nothing And n >= 0 Then
+            If n <> lo.ListRows.Count Then
+                item = lo.Name & " (pivots hold " & n & " rows, the table has " & lo.ListRows.Count & ")"
+                If InStr(stale, item) = 0 Then stale = stale & IIf(stale = "", "", "; ") & item
+            End If
+        End If
+    Next pc
+    If stale = "" And errText = "" Then
+        Note "Pivots", "", "Refreshed"
+    Else
+        pivFailed = True
+        Problem "Pivots", "NOT refreshed: " & stale & IIf(errText <> "", " " & errText, "") & _
+                ". Usually a pivot has no free row to grow into; see the Pivot room lines. Insert empty rows under it, Refresh All, then Match report tables to pivots."
+        CheckPivotRoom
+    End If
+End Sub
+
+Private Function CellInPivot(c As Range) As Boolean
+    Dim pt As PivotTable
+    On Error Resume Next
+    Set pt = c.PivotTable                       ' raises an error outside a pivot
+    CellInPivot = Not pt Is Nothing
+End Function
+
+' The table a pivot cache reads ("Table1"), or Nothing for a range or another source.
+Private Function TableNamed(ByVal src As String) As ListObject
+    Dim w As Worksheet, lo As ListObject
+    If InStr(src, "!") > 0 Then src = Mid$(src, InStrRev(src, "!") + 1)
+    For Each w In ThisWorkbook.Worksheets
+        For Each lo In w.ListObjects
+            If StrComp(lo.Name, src, vbTextCompare) = 0 Then
+                Set TableNamed = lo
+                Exit Function
+            End If
+        Next lo
+    Next w
+End Function
+
+' Pivots on Table1 / Table19 grow by a row for a new SKU. When the row under a pivot holds something
+' (a label, another pivot's filters), Excel cannot grow it and the refresh of that table's pivots fails.
+Private Sub CheckPivotRoom()
+    Dim w As Worksheet, pt As PivotTable, lo As ListObject, rg As Range, c As Range, k As Long, freeRows As Long, blocker As String
+    For Each w In ThisWorkbook.Worksheets
+        For Each pt In w.PivotTables
+            Set lo = Nothing
+            On Error Resume Next
+            Set lo = TableNamed(CStr(pt.PivotCache.SourceData))
+            On Error GoTo 0
+            If Not lo Is Nothing Then
+                Set rg = pt.TableRange2
+                freeRows = 0: blocker = ""
+                For k = 1 To 3
+                    For Each c In rg.Rows(rg.Rows.Count).Offset(k, 0).Cells
+                        If Len(c.Formula) > 0 Or CellInPivot(c) Then
+                            blocker = c.Address(False, False)
+                            Exit For
+                        End If
+                    Next c
+                    If blocker <> "" Then Exit For
+                    freeRows = freeRows + 1
+                Next k
+                If blocker <> "" And freeRows < 2 Then
+                    Warn w.Name, "Pivot room: " & pt.Name & " (" & rg.Address(False, False) & ", on " & lo.Name & ") has " & freeRows & _
+                         " free row(s) before " & blocker & ". A new SKU makes it one row longer; insert empty rows under it or its refresh fails."
+                End If
+            End If
+        Next pt
+    Next w
 End Sub
 
 Private Function InVal(ByVal nm As String) As Variant
