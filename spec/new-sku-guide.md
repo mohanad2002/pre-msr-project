@@ -55,13 +55,20 @@ Then click Refresh All and **Match report tables to pivots**. The checklist line
 
 ## Report tables that follow a pivot
 
-Monthly Gap `Table612` and TTS `Table4` read a pivot's row list by position: table row 1 reads pivot row 1, and so on. They need exactly one table row per pivot row. The pivot lists also keep SKUs that only have last month's (M-1) rows, so the count cannot be worked out from the SKUs added or deleted.
+Monthly Gap `Table612`, TTS `Table4` and Gap OL `Table6` read a pivot's row list by position: table row 1 reads pivot row 1, and so on. They need exactly one table row per pivot row. The pivot lists also keep SKUs that only have last month's (M-1) rows, so the count cannot be worked out from the SKUs added or deleted.
 
 After the pivots refresh, Add SKU and Delete SKU (and the **Match report tables to pivots** button) therefore:
 1. find the table's link columns (first row is a plain link such as `=CD35`);
 2. count the pivot list down to the first blank, "(blank)" or "Grand Total";
 3. add or remove table rows to match;
 4. set every link to the first row's pattern, so row n reads list row n.
+5. Gap OL's list also holds category subtotals ("Coffee Total"):
+   - item rows get the item-row formulas;
+   - subtotal rows get `=SUM(...)` over their own block;
+   - the totals row gets `=SUM(...)` over the subtotal rows.
+6. Typed values in the table (Gap OL's LY columns D, J, P) are noted **before** the refresh by Category + F-Group and put back on the row with the same labels, so they stay with their F-Group when a new one shifts the list. New rows start blank there.
+
+The **Match report tables to pivots** button notes the typed values, refreshes the pivots and then matches. Use it instead of Refresh All after a manual change. A manual Refresh All first would shift the rows before their typed values are noted.
 
 The preview shows the counts without changing anything.
 
@@ -207,7 +214,7 @@ The macro does not ask for monthly price-change % (Price Chnge), monthly distrib
 | 2027_by Quarter AD:AN | same as above | Links to 2027_Comparision row by row (6 rows apart) |
 | 2027_Comparision `Table20`, 2027 VS ICP `Table2011` | 1 each | Row inside the category section, so the "Total Dairy" subtotal includes it |
 | 2027 M vs M-1 `Table12` | 1 per short description | Category / F-Group / short description; sums its pivot (X:AI) by short description. Shared by SKUs with the same short description |
-| Gap OL `Table6` | 1 per report F-Group | Category / Update F-Group, inside the category section. Shared by the SKUs of that F-Group |
+| Gap OL `Table6` | 1 per F-Group pivot row | Since the 27 Nov BSE2 file, B:C link by position to a pivot on SKU mapping-Pricing (Category, F-Group) in AU:AV, including the category subtotal rows and the Grand Total (the table's totals row). Matched after each refresh (see below) |
 | Monthly Gap `Table612` | 1 per pivot row | Reads the pivot list in CD:CE by position. Matched to the list after each refresh |
 | TTS `Table4` | 1 per F-Group pivot row | Reads the pivot list in AA:AB by position. Matched to the list after each refresh, so a new F-Group gets its row |
 | CYvsNY `Table9` | 2 | 2026 and 2027 rows; has room for 41 SKUs (39 after the next one) |

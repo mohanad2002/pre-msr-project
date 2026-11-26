@@ -2,7 +2,7 @@ Attribute VB_Name = "NewSKU"
 '==============================================================================
 ' NewSKU - add a new SKU to the Pre-MSR workbook in one step.
 '
-' VERSION 2026-11-27 g (2026 DF check covers the split DF sheets)
+' VERSION 2026-11-28 h (Gap OL table follows its F-Group pivot, with subtotals)
 '
 ' Macros (Alt+F8):
 '   Setup_NewSKU_Sheet        Builds the "New SKU" input sheet. Run once.
@@ -21,8 +21,9 @@ Attribute VB_Name = "NewSKU"
 '   Setup_ChangeSKU_Section   Adds the Change a SKU box to an existing New SKU sheet.
 '   Setup_RefreshNewSKUSheet  Brings an existing New SKU sheet up to date (checklist,
 '                             Delete and Change boxes) without clearing your inputs.
-'   NewSKU_SyncReportTables   Matches Monthly Gap Table612 and TTS Table4 to their pivot
-'                             lists (one row per pivot row). Add / Delete run it too.
+'   NewSKU_SyncReportTables   Refreshes the pivots, then matches Monthly Gap Table612, TTS
+'                             Table4 and Gap OL Table6 to their pivot lists (one row per pivot
+'                             row, subtotals rebuilt). Add / Delete run it too.
 '
 ' How it works: every sheet that keeps one row (or block of rows) per SKU gets
 ' a copy of the rows of a "template" SKU that you name, normally a SKU in the
@@ -36,7 +37,7 @@ Attribute VB_Name = "NewSKU"
 Option Explicit
 
 ' Version of this module. Check it after importing (Ctrl+F in the VBA editor).
-Public Const NEWSKU_VERSION As String = "2026-11-27 g (2026 DF check covers the split DF sheets)"
+Public Const NEWSKU_VERSION As String = "2026-11-28 h (Gap OL table follows its F-Group pivot, with subtotals)"
 
 Private Const FORM_NAME As String = "New SKU"
 Private Const SD_CODE As String = "SY010005"
@@ -98,6 +99,7 @@ Private nCodeCells As Long, nDescCells As Long, nFmlCells As Long
 Private nOldSales As Double, nNewSales As Double
 Private pivKeep As Collection                   ' pivot filter state of the old code / description
 Private pivFailed As Boolean                    ' the last refresh left pivots on Table1 / Table19 out of date
+Private snapTyped As Object                     ' typed values of the report tables before the refresh, by row labels
 
 ' ---- IMS Stock columns, read from its header row ----
 Private imsHdr As Long, imsCode As Long, imsLabel As Long, imsSku As Long
@@ -271,7 +273,7 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     stepName = "2027_Comparision table": Step_ReportTable "2027_Comparision", "Table20"
     stepName = "2027 VS ICP table": Step_ReportTable "2027 VS ICP", "Table2011"
     stepName = "2027 M vs M-1 table": Step_ReportTable "2027 M vs M-1", "Table12", 3, sShort, sFg, True
-    stepName = "Gap OL table": Step_ReportTable "Gap OL", "Table6", 2, sUpdFg, "", True
+    stepName = "Gap OL table": Note "Gap OL", "Table6", "Matched to its F-Group pivot (AU:AV, from SKU mapping-Pricing) after the refresh"
     stepName = "Monthly Gap table": Step_MonthlyGap
     stepName = "CYvsNY table": Step_CYvsNY
 
@@ -279,6 +281,7 @@ Private Sub RunNewSKU(ByVal isDry As Boolean)
     Application.Calculate
     pivFailed = False
     If Not isDry And sRefresh Then
+        stepName = "report tables": SnapshotReportTables
         stepName = "refresh pivots"
         RefreshPivots
     End If
@@ -1274,7 +1277,7 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     stepName = "2027_Comparision table": Del_TableRows "2027_Comparision", "Table20", ""
     stepName = "2027 VS ICP table": Del_TableRows "2027 VS ICP", "Table2011", ""
     stepName = "2027 M vs M-1 table": Del_SharedRow "2027 M vs M-1", "Table12", 3, dShort, dShortShared
-    stepName = "Gap OL table": Del_SharedRow "Gap OL", "Table6", 2, dUpdFg, dUpdFgShared
+    stepName = "Gap OL table": Note "Gap OL", "Table6", "Matched to its F-Group pivot (AU:AV, from SKU mapping-Pricing) after the refresh"
     stepName = "Monthly Gap table": Del_MonthlyGap
     stepName = "SKU mapping-Pricing": Del_Master
     Note "CYvsNY", "Table9", "Keeps its rows; the spare pair stays blank after refresh"
@@ -1283,6 +1286,7 @@ Private Sub RunDeleteSKU(ByVal isDry As Boolean)
     Application.Calculate
     pivFailed = False
     If Not isDry And UCase$(InText("NS_Refresh")) <> "NO" Then
+        stepName = "report tables": SnapshotReportTables
         stepName = "refresh pivots"
         RefreshPivots
         If Not pivFailed Then
@@ -1579,8 +1583,8 @@ End Sub
 ' Report tables that read a pivot's row list by position
 '==============================================================================
 
-' Monthly Gap Table612 (pivot list CD:CE) and TTS Table4 (AA:AB): one table row per pivot row.
-' Saves a backup, then adds or removes table rows and repairs the position links.
+' Refreshes the pivots, then matches the report tables that read a pivot list by position
+' (Monthly Gap Table612, TTS Table4, Gap OL Table6). Saves a backup first.
 Public Sub NewSKU_SyncReportTables()
     If Sh(FORM_NAME) Is Nothing Then
         MsgBox "Run Setup_NewSKU_Sheet first.", vbExclamation, "New SKU"
@@ -1592,48 +1596,137 @@ Public Sub NewSKU_SyncReportTables()
         If MsgBox("The backup copy could not be saved. Continue without a backup?", vbYesNo + vbExclamation, "New SKU") <> vbYes Then Exit Sub
     End If
     Application.ScreenUpdating = False
-    SyncPivotLists
+    SnapshotReportTables                        ' typed values, read before the pivots move
+    pivFailed = False
+    RefreshPivots
+    If Not pivFailed Then SyncPivotLists
     Application.ScreenUpdating = True
     Sh(FORM_NAME).Activate
-    MsgBox "Done: " & nWarnings & " point(s) to check. The changes are listed in column L." & vbLf & _
-           "Refresh the pivots first if SKUs were added or deleted by hand.", vbInformation, "New SKU"
+    If pivFailed Then
+        MsgBox "The pivots did not refresh, so the report tables were not changed. See column L.", vbExclamation, "New SKU"
+    Else
+        MsgBox "Done: " & nWarnings & " point(s) to check. The changes are listed in column L.", vbInformation, "New SKU"
+    End If
 End Sub
+
+Private Function ReportTables() As Variant
+    ReportTables = Array("Monthly Gap|Table612", "TTS|Table4", "Gap OL|Table6")
+End Function
 
 Private Sub SyncPivotLists()
-    SyncPivotList "Monthly Gap", "Table612"
-    SyncPivotList "TTS", "Table4"
+    Dim t As Variant
+    For Each t In ReportTables()
+        SyncPivotList Split(t, "|")(0), Split(t, "|")(1)
+    Next t
 End Sub
 
-' The table's position columns are those whose first row is a plain link to one cell (=CD35):
-' that cell is the top of the pivot list. The list runs down to the first blank, "(blank)" or
-' "Grand Total". The table gets one row per list row, and every position column is set to the
-' first row's pattern, so row n reads list row n.
-Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
-    Dim w As Worksheet, lo As ListObject, top As Range, src As Range, nr As ListRow, saved As Collection
-    Dim c As Long, i As Long, need As Long, have As Long, nFix As Long, fml As String, v As Variant
-    Dim posCols As New Collection, pc As Variant
+Private Function TableOn(ByVal sheetName As String, ByVal tableName As String) As ListObject
+    Dim w As Worksheet
     Set w = Sh(sheetName)
-    If w Is Nothing Then Exit Sub
+    If w Is Nothing Then Exit Function
     On Error Resume Next
-    Set lo = w.ListObjects(tableName)
+    Set TableOn = w.ListObjects(tableName)
     On Error GoTo 0
-    If lo Is Nothing Then Exit Sub
-    If lo.DataBodyRange Is Nothing Then Exit Sub
+End Function
+
+' The table's position columns are those whose first row is a plain link to one cell (=CD35);
+' top is set to the first of those cells, the top of the pivot list.
+Private Function PosColumns(lo As ListObject, ByRef top As Range) As Collection
+    Dim c As Long, fml As String, src As Range, cols As New Collection
+    Set top = Nothing
     For c = 1 To lo.ListColumns.Count
         fml = lo.DataBodyRange.Cells(1, c).Formula
         If Left$(fml, 1) = "=" And InStr(fml, "!") = 0 And InStr(fml, "(") = 0 And InStr(fml, "[") = 0 Then
             Set src = Nothing
             On Error Resume Next
-            Set src = w.Range(Mid$(fml, 2))
+            Set src = lo.Parent.Range(Mid$(fml, 2))
             On Error GoTo 0
             If Not src Is Nothing Then
                 If src.Cells.Count = 1 Then
-                    posCols.Add c
+                    cols.Add c
                     If top Is Nothing Then Set top = src
                 End If
             End If
         End If
     Next c
+    Set PosColumns = cols
+End Function
+
+' A row's labels (its position columns), used to carry typed values with their row.
+Private Function RowKey(lo As ListObject, ByVal i As Long, posCols As Collection) As String
+    Dim pc As Variant, v As Variant, k As String
+    For Each pc In posCols
+        v = lo.DataBodyRange.Cells(i, pc).Value
+        If IsError(v) Then v = "#"
+        k = k & "|" & Trim$(CStr(v))
+    Next pc
+    RowKey = LCase$(k)
+End Function
+
+Private Function IsSubtotal(ByVal v As Variant) As Boolean
+    Dim t As String
+    If IsError(v) Or IsEmpty(v) Then Exit Function
+    t = LCase$(Trim$(CStr(v)))
+    IsSubtotal = (Len(t) > 6 And Right$(t, 6) = " total" And Left$(t, 11) <> "grand total")
+End Function
+
+Private Function SameValue(ByVal a As Variant, ByVal b As Variant) As Boolean
+    If IsError(a) Or IsError(b) Then Exit Function
+    SameValue = (CStr(a) = CStr(b))
+End Function
+
+' Before a refresh: every typed (non-formula) value in the report tables, keyed by its row's labels.
+' Gap OL keeps LY figures typed in some rows; when a new F-Group shifts the pivot list, those
+' values must move with their F-Group, not stay on the row number.
+Private Sub SnapshotReportTables()
+    Dim t As Variant, lo As ListObject, top As Range, posCols As Collection
+    Dim i As Long, c As Long, byKey As Object, vals As Object, cols As Object, k As String, cel As Range
+    Set snapTyped = CreateObject("Scripting.Dictionary")
+    For Each t In ReportTables()
+        Set lo = TableOn(Split(t, "|")(0), Split(t, "|")(1))
+        If Not lo Is Nothing Then
+            If Not lo.DataBodyRange Is Nothing Then
+                Set posCols = PosColumns(lo, top)
+                If Not top Is Nothing Then
+                    Set byKey = CreateObject("Scripting.Dictionary")
+                    Set cols = CreateObject("Scripting.Dictionary")
+                    For i = 1 To lo.ListRows.Count
+                        k = RowKey(lo, i, posCols)
+                        Set vals = CreateObject("Scripting.Dictionary")
+                        For c = 1 To lo.ListColumns.Count
+                            Set cel = lo.DataBodyRange.Cells(i, c)
+                            If Not cel.HasFormula And Not IsEmpty(cel.Value) Then
+                                vals.Add c, cel.Value
+                                If Not cols.Exists(c) Then cols.Add c, True
+                            End If
+                        Next c
+                        If Not byKey.Exists(k) Then byKey.Add k, vals
+                    Next i
+                    byKey.Add "#cols", cols
+                    snapTyped.Add lo.Name, byKey
+                End If
+            End If
+        End If
+    Next t
+End Sub
+
+' One table row per pivot list row (down to the first blank, "(blank)" or "Grand Total"), each
+' position column linked to its own list row. When the list carries category subtotals
+' ("Coffee Total", Gap OL), every row also gets the formulas of its kind: item rows those of an
+' item row, subtotal rows =SUM over their block, and the totals row =SUM over the subtotals.
+' Typed values noted before the refresh are put back on the row with the same labels.
+Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
+    Dim w As Worksheet, lo As ListObject, top As Range, nr As ListRow, saved As Collection, cel As Range
+    Dim c As Long, i As Long, need As Long, have As Long, nFix As Long, nKind As Long, nTyped As Long, nCols As Long
+    Dim v As Variant, pc As Variant, idx As Variant, posCols As Collection, hasSub As Boolean
+    Dim isPos() As Boolean, itemTpl() As String, subTpl() As String, subIsSum() As Boolean
+    Dim gotItem As Boolean, gotSub As Boolean, firstItem As Long, subRows As String, want As String, cl As String
+    Dim snap As Object, k As String
+    Set lo = TableOn(sheetName, tableName)
+    If lo Is Nothing Then Exit Sub
+    If lo.DataBodyRange Is Nothing Then Exit Sub
+    Set w = lo.Parent
+    Set posCols = PosColumns(lo, top)
     If top Is Nothing Then
         Warn sheetName, tableName & ": no column links to a pivot list, so its rows were not checked."
         Exit Sub
@@ -1642,21 +1735,23 @@ Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
         v = top.Offset(need, 0).Value
         If IsError(v) Then Exit Do
         If Trim$(CStr(v)) = "" Or CStr(v) = "(blank)" Or LCase$(Left$(CStr(v), 11)) = "grand total" Then Exit Do
+        If IsSubtotal(v) Then hasSub = True
         need = need + 1
     Loop While need < 2000
     have = lo.ListRows.Count
+    nCols = lo.ListColumns.Count
     For i = 2 To have
         For Each pc In posCols
             If lo.DataBodyRange.Cells(i, pc).FormulaR1C1 <> lo.DataBodyRange.Cells(1, pc).FormulaR1C1 Then nFix = nFix + 1
         Next pc
     Next i
-    If need = have And nFix = 0 Then
+    If need = have And nFix = 0 And Not hasSub Then
         Note sheetName, tableName, have & " rows for " & need & " pivot rows (from " & top.Address(False, False) & "): OK"
         Exit Sub
     End If
     Note sheetName, tableName, have & " rows for " & need & " pivot rows (from " & top.Address(False, False) & ")" & _
          IIf(need > have, ": add " & (need - have), IIf(need < have, ": remove " & (have - need), "")) & _
-         IIf(nFix > 0, "; repair " & nFix & " position link(s)", "")
+         IIf(nFix > 0, "; repair " & nFix & " position link(s)", "") & IIf(hasSub, "; subtotal rows follow the list", "")
     If dryRun Or need = 0 Then Exit Sub
     If need > have And Not lo.ShowTotals Then
         If Not RowBelowEmpty(lo) Then
@@ -1664,6 +1759,34 @@ Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
             Exit Sub
         End If
     End If
+
+    ' formulas of an item row and of a subtotal row (one holding =SUM), read before rows move
+    ReDim isPos(1 To nCols): ReDim itemTpl(1 To nCols): ReDim subTpl(1 To nCols): ReDim subIsSum(1 To nCols)
+    For Each pc In posCols
+        isPos(pc) = True
+    Next pc
+    If hasSub Then
+        For i = 1 To have
+            If RowHasSum(lo, i, isPos) Then
+                If Not gotSub Then
+                    For c = 1 To nCols
+                        Set cel = lo.DataBodyRange.Cells(i, c)
+                        If cel.HasFormula Then
+                            subTpl(c) = cel.FormulaR1C1
+                            subIsSum(c) = (cel.Formula Like "=SUM(*:*)" And InStr(cel.Formula, ",") = 0)
+                        End If
+                    Next c
+                    gotSub = True
+                End If
+            ElseIf Not gotItem Then
+                For c = 1 To nCols
+                    If lo.DataBodyRange.Cells(i, c).HasFormula Then itemTpl(c) = lo.DataBodyRange.Cells(i, c).FormulaR1C1
+                Next c
+                gotItem = True
+            End If
+        Next i
+    End If
+
     Set saved = ClearTableFilters(lo)
     Do While lo.ListRows.Count < need
         Set nr = lo.ListRows.Add(AlwaysInsert:=False)
@@ -1679,8 +1802,116 @@ Private Sub SyncPivotList(ByVal sheetName As String, ByVal tableName As String)
             End With
         Next pc
     Next i
+    If lo.ShowTotals Then                       ' the totals row's labels read the pivot's Grand Total row
+        For Each pc In posCols
+            Set cel = lo.TotalsRowRange.Cells(1, pc)
+            If cel.HasFormula Then
+                If cel.FormulaR1C1 <> lo.DataBodyRange.Cells(1, pc).FormulaR1C1 Then cel.FormulaR1C1 = lo.DataBodyRange.Cells(1, pc).FormulaR1C1
+            End If
+        Next pc
+    End If
+
+    If hasSub And gotItem And gotSub Then
+        firstItem = 1
+        For i = 1 To need
+            If IsSubtotal(top.Offset(i - 1, 0).Value) Then
+                For c = 1 To nCols
+                    If Not isPos(c) Then
+                        Set cel = lo.DataBodyRange.Cells(i, c)
+                        If subIsSum(c) Then
+                            cl = ColL(cel.Column)
+                            If i > firstItem Then
+                                want = "=SUM(" & cl & (lo.DataBodyRange.Row + firstItem - 1) & ":" & cl & (cel.Row - 1) & ")"
+                            Else
+                                want = "=0"
+                            End If
+                            If cel.Formula <> want Then cel.Formula = want: nKind = nKind + 1
+                        ElseIf subTpl(c) <> "" Then
+                            If cel.FormulaR1C1 <> subTpl(c) Then cel.FormulaR1C1 = subTpl(c): nKind = nKind + 1
+                        End If
+                    End If
+                Next c
+                subRows = subRows & "," & i
+                firstItem = i + 1
+            Else
+                For c = 1 To nCols
+                    If Not isPos(c) And itemTpl(c) <> "" Then
+                        Set cel = lo.DataBodyRange.Cells(i, c)
+                        If cel.FormulaR1C1 <> itemTpl(c) Then cel.FormulaR1C1 = itemTpl(c): nKind = nKind + 1
+                    End If
+                Next c
+            End If
+        Next i
+        If lo.ShowTotals And subRows <> "" Then
+            For c = 1 To nCols
+                Set cel = lo.TotalsRowRange.Cells(1, c)
+                If cel.Formula Like "=SUM(*" And InStr(cel.Formula, "[") = 0 And InStr(cel.Formula, ":") = 0 Then
+                    cl = ColL(cel.Column)
+                    want = ""
+                    For Each idx In Split(Mid$(subRows, 2), ",")
+                        want = want & IIf(want = "", "", ",") & cl & (lo.DataBodyRange.Row + CLng(idx) - 1)
+                    Next idx
+                    want = "=SUM(" & want & ")"
+                    If Not SameSumTerms(cel.Formula, want) Then cel.Formula = want: nKind = nKind + 1
+                End If
+            Next c
+        End If
+    End If
+
+    If Not snapTyped Is Nothing Then
+        If snapTyped.Exists(lo.Name) Then
+            Set snap = snapTyped(lo.Name)
+            w.Calculate
+            For i = 1 To lo.ListRows.Count
+                k = RowKey(lo, i, posCols)
+                For Each pc In snap("#cols").Keys
+                    Set cel = lo.DataBodyRange.Cells(i, pc)
+                    If Not cel.HasFormula Then
+                        v = Empty
+                        If snap.Exists(k) Then
+                            If snap(k).Exists(pc) Then v = snap(k)(pc)
+                        End If
+                        If Not SameValue(cel.Value, v) Then
+                            cel.Value = v
+                            nTyped = nTyped + 1
+                        End If
+                    End If
+                Next pc
+            Next i
+        End If
+    End If
     RestoreTableFilters lo, saved
+    If nKind + nTyped > 0 Then Note sheetName, tableName, nKind & " formula(s) set for item / subtotal / total rows; " & nTyped & " typed value(s) moved with their row"
 End Sub
+
+' True when two =SUM(a,b,...) formulas add the same cells, in any order.
+Private Function SameSumTerms(ByVal f1 As String, ByVal f2 As String) As Boolean
+    Dim a As Variant, b As Variant, x As Variant, found As Boolean, y As Variant
+    If Left$(f1, 5) <> "=SUM(" Or Left$(f2, 5) <> "=SUM(" Then Exit Function
+    a = Split(Mid$(f1, 6, Len(f1) - 6), ",")
+    b = Split(Mid$(f2, 6, Len(f2) - 6), ",")
+    If UBound(a) <> UBound(b) Then Exit Function
+    For Each x In a
+        found = False
+        For Each y In b
+            If StrComp(Trim$(x), Trim$(y), vbTextCompare) = 0 Then found = True
+        Next y
+        If Not found Then Exit Function
+    Next x
+    SameSumTerms = True
+End Function
+
+Private Function RowHasSum(lo As ListObject, ByVal i As Long, isPos() As Boolean) As Boolean
+    Dim c As Long
+    For c = 1 To lo.ListColumns.Count
+        If Not isPos(c) Then
+            If lo.DataBodyRange.Cells(i, c).Formula Like "=SUM(*" Then
+                RowHasSum = True
+                Exit Function
+            End If
+        End If
+    Next c
+End Function
 
 ' SKU mapping-Pricing last. Only the SKU's own cells move up: W:Y (unified names) and S2:S6
 ' (categories) are separate lists in the same rows and stay where they are.
@@ -2446,7 +2677,7 @@ Private Function BuildChecks(f As Worksheet, ByVal r0 As Long) As Long
     items.Add Array("2027_Comparision table", "=COUNTIF('2027_Comparision'!$C$16:$C$300,$E$7)", "1", "")
     items.Add Array("2027 VS ICP table", "=COUNTIF('2027 VS ICP'!$C$16:$C$300,$E$7)", "1", "")
     items.Add Array("2027 M vs M-1 table (short description)", "=COUNTIF('2027 M vs M-1'!$C$20:$C$300,$E$8)", "1", "One row per short description")
-    items.Add Array("Gap OL table (report F-Group)", "=COUNTIF('Gap OL'!$C$13:$C$300,$E$15)", "1", "One row per Update F-Group")
+    items.Add Array("Gap OL table (F-Group, after refresh)", "=COUNTIF('Gap OL'!$C$13:$C$300,$E$14)", "1", "One row per F-Group (pivot on SKU mapping-Pricing)")
     items.Add Array("Monthly Gap table (after refresh)", "=COUNTIF('Monthly Gap'!$C$32:$C$300,$E$7)", "1", "After refresh; Add / Delete match the table to its pivot list")
     df = DFCheck()
     items.Add Array("2026 DF reports (after refresh)", df(0), df(1), df(2))
